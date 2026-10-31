@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FazPPP: GPS taşıyıcı fazıyla istasyon konumu</title>
+<meta name="description" content="RINEX gözlem, navigasyon, SP3 ve meteoroloji dosyalarından GPS taşıyıcı fazıyla istasyon konumu. Tarayıcıda çalışır.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#compute" data-i18n="hero.cta">Dosyaları yükle</a>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#" aria-label="FazPPP">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/><circle cx="22.5" cy="9.5" r="3" fill="var(--accent)"/></svg>
+      <span>FazPPP</span>
+    </a>
+    <nav class="top-nav" aria-label="Ana menü">
+      <a href="#compute" data-i18n="nav.compute">Hesapla</a>
+      <a href="#method" data-i18n="nav.method">Yöntem</a>
+      <a href="#about" data-i18n="nav.about">Hakkında</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Dil / Language">
+      <button type="button" data-lang="tr" aria-pressed="true">TR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="hero-text">
+      <h1 data-i18n="hero.title">GPS taşıyıcı fazıyla istasyon konumu</h1>
+      <p class="lead" data-i18n="hero.lead"></p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#compute" data-i18n="hero.cta">Dosyaları yükle</a>
+        <button class="btn" type="button" id="demo-btn"><span data-i18n="hero.demo">Örnek veriyle dene</span><small data-i18n="hero.demoNote">ISTA, 28 Ağustos 2014</small></button>
+      </div>
+    </div>
+    <figure class="hero-sky">
+      <svg id="sky" viewBox="-120 -120 240 240" role="img" aria-labelledby="sky-cap"></svg>
+      <figcaption id="sky-cap" data-i18n="hero.skyCaption"></figcaption>
+    </figure>
+  </section>
+
+  <section id="compute" class="band">
+    <div class="wrap">
+      <h2 data-i18n="up.title">Dosyalar</h2>
+      <p class="sub" data-i18n="up.lead"></p>
+      <div class="slots" id="slots-main"></div>
+      <details class="more">
+        <summary data-i18n="up.more">Ek dosyalar</summary>
+        <div class="slots" id="slots-more"></div>
+      </details>
+
+      <div class="settings">
+        <h3 data-i18n="set.title">Ayarlar</h3>
+        <div class="set-grid">
+          <label class="field">
+            <span data-i18n="set.epoch">Hesap epoğu</span>
+            <input id="p-epoch" type="text" inputmode="numeric" placeholder="13:15:00" pattern="\d{1,2}:\d{2}(:\d{2})?" autocomplete="off">
+            <small data-i18n="set.epoch.hint"></small>
+          </label>
+          <label class="field narrow">
+            <span data-i18n="set.cutoff">Yükseklik açısı sınırı</span>
+            <input id="p-cutoff" type="number" min="0" max="30" step="1" value="10">
+          </label>
+          <fieldset class="field ref">
+            <legend data-i18n="set.ref">Referans koordinat</legend>
+            <div class="xyz">
+              <input id="p-rx" type="text" inputmode="decimal" placeholder="X" aria-label="X">
+              <input id="p-ry" type="text" inputmode="decimal" placeholder="Y" aria-label="Y">
+              <input id="p-rz" type="text" inputmode="decimal" placeholder="Z" aria-label="Z">
+            </div>
+            <small data-i18n="set.ref.hint"></small>
+          </fieldset>
+        </div>
+        <details class="adv">
+          <summary data-i18n="set.advanced">Gelişmiş</summary>
+          <div class="set-grid">
+            <label class="field narrow"><span data-i18n="set.sigphase"></span><input id="p-sp" type="number" step="0.001" min="0.001" value="0.01"></label>
+            <label class="field narrow"><span data-i18n="set.sigcode"></span><input id="p-sc" type="number" step="0.1" min="0.1" value="1.0"></label>
+            <label class="field narrow"><span data-i18n="set.zwd"></span><input id="p-zwd" type="number" step="0.5" min="0.5" value="2"></label>
+            <label class="field narrow"><span data-i18n="set.spp"></span><input id="p-spp" type="number" step="30" min="30" value="300"></label>
+          </div>
+        </details>
+      </div>
+
+      <div class="run-row">
+        <button class="btn primary big" id="run" type="button" data-i18n="run.button">Hesapla</button>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </div>
+      <ol class="steps" id="steps" hidden></ol>
+      <div class="error" id="error" hidden></div>
+    </div>
+  </section>
+
+  <section id="results" class="wrap" hidden>
+    <div class="res-head">
+      <h2 data-i18n="res.title">Sonuçlar</h2>
+      <div class="res-tools">
+        <span class="muted" id="runtime"></span>
+        <button class="btn small" type="button" id="dl-json" data-i18n="res.download">JSON</button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="panels"></div>
+  </section>
+
+  <section id="method" class="wrap method">
+    <h2 data-i18n="method.title">Yöntem</h2>
+    <p class="sub" data-i18n="method.lead"></p>
+    <ol class="method-list" id="method-list"></ol>
+  </section>
+</main>
+
+<footer id="about" class="foot">
+  <div class="wrap">
+    <h2 data-i18n="about.title">Hakkında</h2>
+    <p data-i18n="about.text"></p>
+    <p><a id="src-link" href="https://github.com/" data-i18n="about.source">Kaynak kodu</a></p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" defer></script>
+<script src="assets/i18n.js" defer></script>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
