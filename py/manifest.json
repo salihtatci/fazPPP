@@ -1,0 +1,15 @@
+{
+ "files": [
+  "web_entry.py",
+  "gnssfaz/__init__.py",
+  "gnssfaz/const.py",
+  "gnssfaz/corrections.py",
+  "gnssfaz/estimate.py",
+  "gnssfaz/geo.py",
+  "gnssfaz/orbit.py",
+  "gnssfaz/pipeline.py",
+  "gnssfaz/preprocess.py",
+  "gnssfaz/readers.py",
+  "gnssfaz/timeutil.py"
+ ]
+}
