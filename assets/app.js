@@ -1,0 +1,625 @@
+/* FazPPP arayuzu */
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  // ------------------------------------------------------------------ dil
+  let lang = "tr";
+  try { lang = localStorage.getItem("fazppp-lang") || (navigator.language || "tr").slice(0, 2); } catch (e) { /* yok */ }
+  if (!I18N[lang]) lang = "tr";
+  const t = (k) => (I18N[lang][k] ?? I18N.tr[k] ?? k);
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.title = t("doc.title");
+    $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    $$(".lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+    renderSlots();
+    renderMethod();
+    if (skyData) drawHeroSky(false);
+    if (state.result) renderResults(state.result, state.activeTab);
+  }
+  $$(".lang button").forEach((b) => b.addEventListener("click", () => {
+    lang = b.dataset.lang;
+    try { localStorage.setItem("fazppp-lang", lang); } catch (e) { /* yok */ }
+    applyLang();
+  }));
+
+  // ------------------------------------------------------------------ sayi bicimleri
+  const dec = () => (lang === "tr" ? "," : ".");
+  function num(v, d = 3) {
+    if (v === null || v === undefined || Number.isNaN(v)) return "–";
+    const s = Number(v).toFixed(d).replace("-", "−");
+    return lang === "tr" ? s.replace(".", ",") : s;
+  }
+  function coord(v, d = 4) {
+    if (v === null || v === undefined) return "–";
+    const neg = v < 0;
+    const [i, f] = Math.abs(v).toFixed(d).split(".");
+    const g = i.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return (neg ? "−" : "") + g + (f ? dec() + f : "");
+  }
+  const sgn = (v, d = 3) => (v === null || v === undefined ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + num(Math.abs(v), d));
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ------------------------------------------------------------------ dosya yuvalari
+  const SLOTS_MAIN = [
+    { id: "obs", req: true, ext: ".o,.obs,.rnx,.gz,.*o" },
+    { id: "nav", req: false, ext: ".n,.nav,.rnx,.gz,.*n" },
+    { id: "sp3", req: true, multi: true, ext: ".sp3,.SP3,.gz,.eph" },
+    { id: "met", req: false, ext: ".m,.met,.rnx,.gz,.*m" },
+  ];
+  const SLOTS_MORE = [
+    { id: "atx", req: false, ext: ".atx,.gz" },
+    { id: "dcb", req: false, ext: ".DCB,.dcb,.gz" },
+  ];
+  const state = { files: {}, result: null, activeTab: "summary", running: false, csv: {}, charts: {} };
+
+  function renderSlots() {
+    for (const [host, list] of [["#slots-main", SLOTS_MAIN], ["#slots-more", SLOTS_MORE]]) {
+      const el = $(host);
+      el.innerHTML = list.map((s) => {
+        const f = state.files[s.id];
+        const names = f ? f.map((x) => esc(x.name)).join(", ") : "";
+        return `<div class="slot${f ? " filled" : ""}" data-slot="${s.id}">
+          <div class="slot-head"><span class="slot-name">${esc(t("up." + s.id))}</span>
+          <span class="slot-tag${s.req ? " req" : ""}">${esc(t(s.req ? "up.required" : "up.optional"))}</span></div>
+          <p class="slot-hint">${esc(t("up." + s.id + ".hint"))}</p>
+          <input type="file" ${s.multi ? "multiple" : ""} aria-label="${esc(t("up." + s.id))}">
+          <div class="slot-file">${f ? `<span class="fname">${names}</span><button type="button" data-clear="${s.id}">${esc(t("up.clear"))}</button>`
+            : `<span class="drop">${esc(t("up.drop"))}</span>`}</div></div>`;
+      }).join("");
+    }
+    $$(".slot").forEach((slot) => {
+      const id = slot.dataset.slot;
+      const inp = $("input[type=file]", slot);
+      inp.addEventListener("change", () => takeFiles(id, inp.files));
+      slot.addEventListener("dragover", (e) => { e.preventDefault(); slot.classList.add("over"); });
+      slot.addEventListener("dragleave", () => slot.classList.remove("over"));
+      slot.addEventListener("drop", (e) => { e.preventDefault(); slot.classList.remove("over"); takeFiles(id, e.dataTransfer.files); });
+    });
+    $$("[data-clear]").forEach((b) => b.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation(); delete state.files[b.dataset.clear]; renderSlots();
+    }));
+  }
+
+  async function readFileText(file) {
+    const name = file.name;
+    if (/\.Z$/.test(name)) throw new Error(t("err.Z"));
+    let buf = await file.arrayBuffer();
+    if (/\.gz$/i.test(name)) {
+      const ds = new DecompressionStream("gzip");
+      buf = await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
+    }
+    return new TextDecoder("iso-8859-1").decode(buf);
+  }
+
+  async function takeFiles(id, fileList) {
+    const arr = Array.from(fileList || []);
+    if (!arr.length) return;
+    ensureWorker();
+    const def = [...SLOTS_MAIN, ...SLOTS_MORE].find((s) => s.id === id);
+    const use = def.multi ? arr : arr.slice(0, 1);
+    try {
+      const out = [];
+      for (const f of use) out.push({ name: f.name, text: await readFileText(f) });
+      state.files[id] = out;
+      hideError();
+    } catch (err) {
+      showError("read", `${t("err.read")} ${err.message}`);
+    }
+    renderSlots();
+  }
+
+  // ------------------------------------------------------------------ worker
+  let worker = null;
+  let workerReady = false;
+  function ensureWorker() {
+    if (worker) return worker;
+    worker = new Worker("worker.js");
+    worker.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === "boot") setStatus(t("boot." + m.stage) + "…");
+      else if (m.type === "ready") { workerReady = true; if (!state.running) setStatus(t("boot.ready")); }
+      else if (m.type === "progress") markStep(m.step);
+      else if (m.type === "result") onResult(m.payload);
+    };
+    worker.onerror = (e) => { state.running = false; setBusy(false); showError("worker", e.message || ""); };
+    worker.postMessage({ type: "init" });
+    return worker;
+  }
+  const setStatus = (s) => { $("#status").textContent = s; };
+
+  const STEP_KEYS = ["read", "preprocess", "orbit", "atmosphere", "corrections", "l3", "tables", "iono", "single", "multipath", "spp", "plots"];
+  function renderSteps() {
+    const ol = $("#steps");
+    ol.innerHTML = STEP_KEYS.map((k) => `<li data-step="${k}">${esc(t("step." + k))}</li>`).join("");
+    ol.hidden = false;
+  }
+  function markStep(key) {
+    if (key === "done") { $$("#steps li").forEach((li) => { li.classList.remove("active"); li.classList.add("done"); }); return; }
+    let seen = false;
+    $$("#steps li").forEach((li) => {
+      if (li.dataset.step === key) { li.classList.add("active"); li.classList.remove("done"); seen = true; }
+      else if (!seen) { li.classList.remove("active"); li.classList.add("done"); }
+    });
+    setStatus(t("run.running") + ": " + t("step." + key));
+  }
+  function setBusy(b) { $("#run").disabled = b; $("#demo-btn").disabled = b; }
+
+  function params() {
+    const v = (id) => $(id).value.trim();
+    const n = (id) => { const x = parseFloat(v(id).replace(",", ".")); return Number.isFinite(x) ? x : null; };
+    const ref = [n("#p-rx"), n("#p-ry"), n("#p-rz")];
+    return {
+      epoch: v("#p-epoch") || null,
+      cutoff: n("#p-cutoff") ?? 10,
+      ref_xyz: ref.every((x) => x !== null) ? ref : null,
+      sig_phase: n("#p-sp") ?? 0.01, sig_code: n("#p-sc") ?? 1.0,
+      zwd_block_h: n("#p-zwd") ?? 2, spp_step: n("#p-spp") ?? 300,
+    };
+  }
+
+  function run() {
+    if (state.running) return;
+    if (!state.files.obs || !state.files.sp3) { setStatus(t("run.needObs")); return; }
+    hideError();
+    state.running = true;
+    setBusy(true);
+    renderSteps();
+    setStatus(workerReady ? t("run.running") + "…" : t("boot.pyodide") + "…");
+    const one = (k) => (state.files[k] ? state.files[k][0].text : null);
+    ensureWorker().postMessage({
+      type: "run",
+      files: { obs: one("obs"), sp3: state.files.sp3.map((f) => f.text), nav: one("nav"), met: one("met"), atx: one("atx"), dcb: one("dcb") },
+      params: params(),
+    });
+  }
+  $("#run").addEventListener("click", run);
+
+  function onResult(payload) {
+    state.running = false;
+    setBusy(false);
+    let r;
+    try { r = JSON.parse(payload); } catch (e) { showError("internal", String(e)); return; }
+    if (!r.ok) { showError(r.code, r.message, r.trace); setStatus(""); return; }
+    markStep("done");
+    setStatus("");
+    state.result = r.result;
+    renderResults(r.result, "summary");
+    $("#results").hidden = false;
+    $("#results").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+
+  function showError(code, msg, trace) {
+    const box = $("#error");
+    const known = I18N[lang]["err." + code];
+    box.innerHTML = `<h3>${esc(t("err.title"))}</h3><p>${esc(known || msg || t("err.internal"))}</p>` +
+      ((trace || (!known && msg)) ? `<details><summary>${esc(t("err.details"))}</summary><pre>${esc(trace || msg)}</pre></details>` : "");
+    box.hidden = false;
+  }
+  const hideError = () => { $("#error").hidden = true; };
+
+  // ------------------------------------------------------------------ ornek veri
+  const DEMO = { dir: "examples/ista_2014_240/", obs: "ISTA2400.14o", nav: "ISTA2400.14n", sp3: "igs18074.sp3", met: "ISTA2400.14m",
+    epoch: "13:15:00", ref: ["4208830.1293", "2334850.4702", "4171267.3316"] };
+  $("#demo-btn").addEventListener("click", async () => {
+    setBusy(true);
+    ensureWorker();
+    try {
+      for (const k of ["obs", "nav", "sp3", "met"]) {
+        const txt = await (await fetch(DEMO.dir + DEMO[k])).text();
+        state.files[k] = [{ name: DEMO[k], text: txt }];
+      }
+      delete state.files.atx; delete state.files.dcb;
+      $("#p-epoch").value = DEMO.epoch;
+      [$("#p-rx").value, $("#p-ry").value, $("#p-rz").value] = DEMO.ref;
+      renderSlots();
+      $("#compute").scrollIntoView({ behavior: "smooth" });
+      setBusy(false);
+      run();
+    } catch (e) { setBusy(false); showError("read", `${t("err.read")} ${e.message}`); }
+  });
+
+  // ------------------------------------------------------------------ giris gokyuzu grafigi
+  let skyData = null;
+  async function drawHeroSky(animate) {
+    const svg = $("#sky");
+    if (!skyData) {
+      try { skyData = await (await fetch("assets/demo_sky.json")).json(); } catch (e) { return; }
+    }
+    const P = (az, el) => { const r = (90 - el) / 90 * 100; const a = az * Math.PI / 180; return [r * Math.sin(a), -r * Math.cos(a)]; };
+    const card = lang === "tr" ? ["K", "D", "G", "B"] : ["N", "E", "S", "W"];
+    let h = "";
+    for (const el of [0, 30, 60]) h += `<circle class="sky-ring${el === 0 ? " outer" : ""}" r="${(90 - el) / 90 * 100}"/>`;
+    for (let a = 0; a < 360; a += 30) { const [x, y] = P(a, 0); h += `<line class="sky-spoke" x1="0" y1="0" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }
+    [[0, card[0]], [90, card[1]], [180, card[2]], [270, card[3]]].forEach(([a, l]) => { const [x, y] = P(a, -9); h += `<text class="sky-lab" x="${x}" y="${y}">${l}</text>`; });
+    h += `<text class="sky-el" x="2" y="${-(60 / 90 * 100) + 6}">30°</text><text class="sky-el" x="2" y="${-(30 / 90 * 100) + 6}">60°</text>`;
+    const epochSv = new Set(skyData.epoch.map((e) => e.sv));
+    let i = 0;
+    for (const [sv, tr] of Object.entries(skyData.sky)) {
+      let d = ""; let pen = false; let prev = null;
+      for (let k = 0; k < tr.az.length; k++) {
+        const az = tr.az[k], el = tr.el[k];
+        if (az === null || el === null || el < 0) { pen = false; continue; }
+        if (prev !== null) { const da = Math.abs(az - prev[0]); if (Math.min(da, 360 - da) > 30 || Math.abs(el - prev[1]) > 10) pen = false; }
+        const [x, y] = P(az, el);
+        d += (pen ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+        pen = true; prev = [az, el];
+      }
+      if (d) h += `<path class="sky-track${epochSv.has(sv) ? " lit" : ""}" d="${d}" style="--d:${(i++ * 0.035).toFixed(2)}s"/>`;
+    }
+    for (const e of skyData.epoch) {
+      const [x, y] = P(e.az, Math.max(e.el, 0));
+      h += `<circle class="sky-sat${e.el < 10 ? " low" : ""}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6"/>`;
+      h += `<text class="sky-prn" x="${(x + 5).toFixed(1)}" y="${(y - 4).toFixed(1)}">${e.sv}</text>`;
+    }
+    svg.innerHTML = h;
+    if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      $$(".sky-track", svg).forEach((p) => p.style.setProperty("--len", Math.ceil(p.getTotalLength())));
+      svg.classList.add("sky-draw");
+    }
+  }
+
+  function renderMethod() {
+    const keys = ["read", "preprocess", "orbit", "atmosphere", "corrections", "l3", "iono", "single", "multipath", "spp"];
+    $("#method-list").innerHTML = keys.map((k) => `<li>${esc(t("step." + k))}</li>`).join("");
+  }
+
+  // ------------------------------------------------------------------ tablolar
+  function table(id, title, cols, rows, opts = {}) {
+    state.csv[id] = { cols, rows };
+    const head = cols.map((c) => `<th scope="col">${esc(t(c.l))}</th>`).join("");
+    const body = rows.map((r) => {
+      const off = opts.offKey && r[opts.offKey] === false;
+      return `<tr${off ? ' class="off"' : ""}>` + cols.map((c) => {
+        const v = r[c.k];
+        let s;
+        if (c.f) s = c.f(v, r);
+        else if (typeof v === "number") s = c.c ? coord(v, c.d ?? 3) : (c.sg ? sgn(v, c.d ?? 3) : num(v, c.d ?? 3));
+        else if (typeof v === "boolean") s = t(v ? "col.yes" : "col.no");
+        else s = esc(v ?? "–");
+        return `<td${typeof v === "string" ? ' class="txt"' : ""}>${s}</td>`;
+      }).join("") + "</tr>";
+    }).join("");
+    return `<div class="tbl-head"><h4>${esc(title)}</h4><button type="button" data-csv="${id}">${esc(t("csv"))}</button></div>
+      <div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-csv]");
+    if (!b) return;
+    const { cols, rows } = state.csv[b.dataset.csv];
+    const line = (a) => a.map((x) => { const s = String(x ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(",");
+    const txt = [line(cols.map((c) => t(c.l))), ...rows.map((r) => line(cols.map((c) => r[c.k])))].join("\n");
+    download(`${b.dataset.csv}.csv`, txt, "text/csv");
+  });
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  $("#dl-json").addEventListener("click", () => {
+    if (!state.result) return;
+    const st = state.result.station.marker || "station";
+    download(`fazppp_${st}_${state.result.epoch.used.replace(/:/g, "")}.json`, JSON.stringify(state.result, null, 1), "application/json");
+  });
+
+  const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+  const neuStr = (a, d = 1, u = "mm") => (a ? a.map((x) => sgn(x, d)).join(" / ") + " " + u : "–");
+
+  // ------------------------------------------------------------------ grafikler
+  const PALETTE = ["#1b6f80", "#8a4777", "#b98500", "#3d7a3a", "#5b5fa8", "#a8532c", "#2f8f8a", "#7a6a2f", "#a33b5b", "#4d6b84", "#6f8f2f", "#8f5f9f"];
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  function baseLayout(extra = {}) {
+    const ink = css("--ink-2"), grid = css("--line-2"), line = css("--line");
+    return Object.assign({
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+      font: { family: "Archivo, Arial, sans-serif", size: 12, color: ink },
+      margin: { l: 58, r: 16, t: 14, b: 44 },
+      xaxis: { gridcolor: grid, linecolor: line, zerolinecolor: line, ticks: "outside", tickcolor: line },
+      yaxis: { gridcolor: grid, linecolor: line, zerolinecolor: line, ticks: "outside", tickcolor: line },
+      legend: { orientation: "h", y: -0.22, font: { size: 11 } },
+      separators: lang === "tr" ? ", " : ". ",
+      hovermode: "closest",
+    }, extra);
+  }
+  const PCONF = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d"] };
+  const pending = {};
+  function chart(id, title, traces, layout, tall) {
+    pending[id] = { traces, layout };
+    return `<p class="chart-title">${esc(title)}</p><div class="chart${tall ? " tall" : ""}" id="ch-${id}"></div>`;
+  }
+  function drawPending(panel) {
+    if (!window.Plotly) { setTimeout(() => drawPending(panel), 300); return; }
+    $$(".chart", panel).forEach((el) => {
+      const id = el.id.slice(3);
+      const p = pending[id];
+      if (!p || el.dataset.drawn) return;
+      if (p.traces.filter((tr) => tr.showlegend !== false).length > 10) p.layout.showlegend = false;
+      Plotly.newPlot(el, p.traces, p.layout, PCONF);
+      el.dataset.drawn = "1";
+    });
+  }
+  const hoursAxis = (lab) => ({ title: { text: lab }, range: null });
+  const tLab = () => (lang === "tr" ? "GPS zamanı [saat]" : "GPS time [h]");
+  function bySat(tArr, yArr, prnArr, mode = "markers", size = 3) {
+    const g = {};
+    for (let i = 0; i < tArr.length; i++) {
+      if (yArr[i] === null) continue;
+      const k = "G" + String(prnArr[i]).padStart(2, "0");
+      (g[k] = g[k] || { x: [], y: [] }).x.push(tArr[i]); g[k].y.push(yArr[i]);
+    }
+    return Object.entries(g).sort().map(([k, v], i) => ({ type: "scatter", mode, name: k, x: v.x, y: v.y,
+      marker: { size, color: PALETTE[i % PALETTE.length] }, line: { width: 1.3, color: PALETTE[i % PALETTE.length] } }));
+  }
+  const epochLine = (h) => ({ type: "line", x0: h, x1: h, yref: "paper", y0: 0, y1: 1, line: { color: css("--accent"), width: 2, dash: "dot" } });
+
+  // ------------------------------------------------------------------ sonuclar
+  const TABS = ["summary", "pre", "orbit", "atm", "corr", "l3", "iono", "single", "mp", "spp"];
+  function renderResults(R, active) {
+    Object.keys(pending).forEach((k) => delete pending[k]);
+    $("#runtime").textContent = `${t("res.runtime")}: ${num(R.meta.runtime_s, 1)} s`;
+    $("#tabs").innerHTML = TABS.map((k) => `<button type="button" role="tab" id="tab-${k}" aria-controls="pn-${k}" aria-selected="${k === active}" data-tab="${k}">${esc(t("tab." + k))}</button>`).join("");
+    const html = { summary: pSummary(R), pre: pPre(R), orbit: pOrbit(R), atm: pAtm(R), corr: pCorr(R), l3: pL3(R),
+      iono: pIono(R), single: pSingle(R), mp: pMp(R), spp: pSpp(R) };
+    $("#panels").innerHTML = TABS.map((k) => `<section class="panel" role="tabpanel" id="pn-${k}" aria-labelledby="tab-${k}" ${k === active ? "" : "hidden"}>${html[k]}</section>`).join("");
+    $$("#tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+    $("#tabs").addEventListener("keydown", (e) => {
+      if (!["ArrowRight", "ArrowLeft"].includes(e.key)) return;
+      const i = TABS.indexOf(state.activeTab) + (e.key === "ArrowRight" ? 1 : -1);
+      const k = TABS[(i + TABS.length) % TABS.length]; showTab(k); $("#tab-" + k).focus();
+    });
+    showTab(active);
+  }
+  function showTab(k) {
+    state.activeTab = k;
+    $$("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === k)));
+    $$(".panel").forEach((p) => { p.hidden = p.id !== "pn-" + k; });
+    drawPending($("#pn-" + k));
+  }
+
+  function solName(n) { return t("sol." + n); }
+
+  function pSummary(R) {
+    const L = R.l3, S = R.station, E = R.epoch;
+    const xyz = (X, s) => ["X", "Y", "Z"].map((a, i) => `<span class="ax">${a}</span><span class="v">${coord(X[i], 4)}</span><span class="s">${s ? "± " + num(s[i], 1) + " mm" : ""}</span>`).join("");
+    const kinH = L.Xk ? `<div class="kin"><h3>${esc(t("sum.kin"))}, ${esc(E.used)}</h3><div class="coord">${xyz(L.Xk, L.sXk_mm)}</div>
+      <p class="geo">${esc(t("l3.kinMinusStatic"))}: ${neuStr(L.kin_minus_static_neu_mm)}</p></div>` : "";
+    const dop = L.dop && L.dop.PDOP ? `<div class="dops">${["GDOP", "PDOP", "HDOP", "VDOP", "TDOP"].map((k) => `<span>${k} <b>${num(L.dop[k], 2)}</b></span>`).join("")}</div>
+      <p class="note">${L.n_sat_kin} ${esc(t("sum.sats"))}</p>` : "–";
+    const rows = R.solutions.filter((s) => s.X).map((s) => ({ name: solName(s.name), X: s.X[0], Y: s.X[1], Z: s.X[2],
+      N: s.neu?.N ?? null, E: s.neu?.E ?? null, U: s.neu?.U ?? null, H: s.neu?.H ?? null, D3: s.neu?.D3 ?? null }));
+    const cols = [{ k: "name", l: "col.solution" }, { k: "X", l: "col.X", d: 4 }, { k: "Y", l: "col.Y", d: 4 }, { k: "Z", l: "col.Z", d: 4 },
+      { k: "N", l: "col.N", d: 3, sg: 1 }, { k: "E", l: "col.E", d: 3, sg: 1 }, { k: "U", l: "col.U", d: 3, sg: 1 }, { k: "H", l: "col.H", d: 3 }, { k: "D3", l: "col.D3", d: 3 }];
+    const warns = (R.meta.warnings || []).map((w) => {
+      const [k, extra] = w.split(":");
+      return `<li>${esc(t("warn." + k))}${extra ? " " + esc(extra) : ""}</li>`;
+    }).join("");
+    return `
+      <div class="plate">
+        <div class="plate-main">
+          <h3>${esc(S.marker || t("sum.station"))}: ${esc(t("sum.static"))}</h3>
+          <div class="coord">${xyz(L.X, L.sX_mm)}</div>
+          <p class="geo">φ ${esc(S.lat)} &nbsp; λ ${esc(S.lon)} &nbsp; h ${num(S.h, 4)} m</p>
+          ${kinH}
+        </div>
+        <div class="plate-side">
+          <div><h3>${esc(t("sum.clock"))}, ${esc(E.used)}</h3><div class="big-num">${num(L.clock_ns, 1)} ns</div>
+            <p class="note">c·dt = ${num(L.clock_m, 3)} m ± ${num(L.sclock_m, 3)} m</p></div>
+          <div><h3>${esc(t("sum.ztd"))}, ${esc(E.used)}</h3><div class="big-num">${num(L.ztd, 4)} m</div>
+            <p class="note">Saastamoinen: ${num(L.ztd_model, 4)} m</p></div>
+          <div><h3>${esc(t("sum.dop"))}</h3>${dop}</div>
+        </div>
+      </div>
+      ${table("solutions", t("sum.compare"), cols, rows)}
+      <p class="note">${esc(t(R.meta.ref_source === "user" ? "sum.compare.lead.user" : "sum.compare.lead.static"))}</p>
+      ${warns ? `<div class="warns"><h3>${esc(t("sum.warnings"))}</h3><ul>${warns}</ul></div>` : ""}`;
+  }
+
+  function pPre(R) {
+    const S = R.station, P = R.pre, pl = R.plots;
+    const info = kv([
+      [t("pre.receiver"), esc(S.receiver)], [t("pre.antenna"), esc(S.antenna)],
+      [t("pre.approx"), S.approx.map((v) => coord(v, 4)).join("; ") + " m"],
+      [t("pre.arp"), S.delta_hen.map((v) => num(v, 4)).join(" / ") + " m"],
+      [t("pre.version"), esc(String(S.rinex_version))], [t("pre.types"), esc(S.obs_types.join(" "))],
+      [t("pre.codes"), esc(Object.entries(S.used_codes).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(", "))],
+      [t("pre.interval"), num(S.interval, 0) + " s"], [t("pre.span"), esc(S.first + " – " + S.last.slice(11))],
+      [t("pre.counts"), `${S.n_epochs} / ${S.n_sats}`],
+    ]);
+    const st = kv([
+      [t("pre.records"), P.n_records], [t("pre.frozen"), P.n_frozen], [t("pre.incomplete"), P.n_incomplete],
+      [t("pre.arcs"), P.n_arcs], [t("pre.usableArcs"), P.n_usable_arcs], [t("pre.outliers"), P.n_outlier],
+      [t("pre.usable"), P.n_usable], [t("pre.thr"), `GF ${num(P.gf_thr, 2)} m, MW ${num(P.mw_thr, 0)}`],
+    ]);
+    const jt = P.jumps.length
+      ? table("jumps", t("pre.jumps"), [{ k: "t", l: "col.time" }, { k: "median_m", l: "col.median", d: 3 }, { k: "nsat", l: "col.nsat", d: 0 }, { k: "k_ms", l: "col.k", d: 0 }], P.jumps)
+        + `<p class="note">${esc(t("pre.jumps.lead"))}</p>`
+      : `<h4>${esc(t("pre.jumps"))}</h4><p class="note">${esc(t("pre.jumps.none"))}</p>`;
+    const at = table("arcs", t("pre.arcsEpoch"), [{ k: "sv", l: "col.sv" }, { k: "start", l: "col.start" }, { k: "end", l: "col.end" },
+      { k: "n", l: "col.n", d: 0 }, { k: "min", l: "col.min", d: 1 }, { k: "mw_std", l: "col.mwstd", d: 3 }, { k: "usable", l: "col.used" }], P.arcs_epoch, { offKey: "usable" });
+    let charts = "";
+    if (pl.clockjump) {
+      const c = pl.clockjump;
+      charts += `<div class="grid2"><div>${chart("cj1", `${c.sv}: ${lang === "tr" ? "ham" : "raw"} λ₁L1 − P1 [km]`,
+        [{ type: "scatter", mode: "markers", x: c.t, y: c.raw_km, marker: { size: 3, color: css("--l2") }, name: "raw" }],
+        baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, shapes: [epochLine(pl.epoch_h)], showlegend: false }))}</div>
+        <div>${chart("cj2", `${c.sv}: ${lang === "tr" ? "düzeltilmiş" : "corrected"} λ₁L1 − P1 [m]`,
+        [{ type: "scatter", mode: "markers", x: c.t, y: c.cor_m, marker: { size: 3, color: css("--l1") }, name: "cor" }],
+        baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, shapes: [epochLine(pl.epoch_h)], showlegend: false }))}</div></div>`;
+    }
+    const gf = Object.entries(pl.gfmw || {});
+    if (gf.length) {
+      const tr = (key) => gf.map(([sv, d], i) => ({ type: "scatter", mode: "lines", name: sv, x: d.t, y: d[key], line: { width: 1.3, color: PALETTE[i % PALETTE.length] } }));
+      charts += `<div class="grid2"><div>${chart("gf", "GF − GF₀ [m]", tr("gf"), baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, shapes: [epochLine(pl.epoch_h)] }))}</div>
+        <div>${chart("mw", lang === "tr" ? "MW − ortalama [devir]" : "MW − mean [cycles]", tr("mw"), baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, shapes: [epochLine(pl.epoch_h)] }))}</div></div>`;
+    }
+    return `<div class="grid2"><div><h4>${esc(t("pre.station"))}</h4>${info}</div><div><h4>${esc(t("pre.stats"))}</h4>${st}<p class="note">${esc(t("pre.method"))}</p></div></div>
+      ${jt}${at}${charts}`;
+  }
+
+  function pOrbit(R) {
+    const O = R.orbit, pl = R.plots;
+    const cols = [{ k: "sv", l: "col.sv" }, { k: "X", l: "col.X", d: 3 }, { k: "Y", l: "col.Y", d: 3 }, { k: "Z", l: "col.Z", d: 3 },
+      { k: "tau_ms", l: "col.tau", d: 3 }, { k: "dts_us", l: "col.dts", d: 3 }, { k: "rel_ns", l: "col.rel", d: 3 }, { k: "sagnac", l: "col.sagnac", d: 3 },
+      { k: "el", l: "col.el", d: 2 }, { k: "az", l: "col.az", d: 2 }, { k: "used", l: "col.used" }];
+    const ck = O.check ? kv([[t("orb.spread") + " P1 − ρ + c·dtˢ", num(O.check.spread_P1, 2) + " m"],
+      ["P3 − ρ + c·dtˢ", num(O.check.spread_P3, 2) + " m"], ["P3 − ρ + c·dtˢ − T", num(O.check.spread_P3T, 2) + " m"],
+      [t("orb.clockRough"), num(O.check.clock_rough_ms, 4) + " ms"]]) : "";
+    const sky = Object.entries(pl.sky).map(([sv, d], i) => {
+      const r = [], th = [];
+      for (let k = 0; k < d.az.length; k++) {
+        if (k > 0 && d.az[k] !== null && d.az[k - 1] !== null) {
+          const da = Math.abs(d.az[k] - d.az[k - 1]); const dd = Math.min(da, 360 - da);
+          if (dd > 30 || Math.abs(d.el[k] - d.el[k - 1]) > 10) { r.push(null); th.push(null); }
+        }
+        r.push(d.el[k] === null ? null : 90 - d.el[k]); th.push(d.az[k]);
+      }
+      return { type: "scatterpolar", mode: "lines", name: sv, r, theta: th, connectgaps: false,
+        line: { width: 1, color: PALETTE[i % PALETTE.length] }, opacity: 0.55, hoverinfo: "name" };
+    });
+    sky.push({ type: "scatterpolar", mode: "markers+text", name: R.epoch.used, r: pl.sky_epoch.map((e) => 90 - e.el), theta: pl.sky_epoch.map((e) => e.az),
+      text: pl.sky_epoch.map((e) => e.sv), textposition: "top right", marker: { size: 10, color: pl.sky_epoch.map((e) => (e.used ? css("--accent") : css("--sheet"))), line: { color: css("--ink"), width: 1.2 } } });
+    const pol = baseLayout({ showlegend: false, margin: { l: 30, r: 30, t: 30, b: 30 },
+      polar: { bgcolor: "rgba(0,0,0,0)", radialaxis: { range: [0, 90], tickvals: [30, 60, 90], ticktext: ["60°", "30°", "0°"], gridcolor: css("--line-2"), linecolor: css("--line") },
+        angularaxis: { direction: "clockwise", rotation: 90, gridcolor: css("--line-2"), linecolor: css("--line") } } });
+    return `<p class="lead2">${esc(t("orb.lead"))}</p>
+      ${table("orbit", `${R.epoch.used}`, cols, O.sats, { offKey: "used" })}
+      <div class="grid2"><div><h4>${esc(t("orb.check"))}</h4>${ck}<p class="note">${esc(t("orb.check.lead"))}</p></div>
+      <div>${chart("sky", t("orb.chart.sky"), sky, pol, true)}</div></div>`;
+  }
+
+  function pAtm(R) {
+    const D = R.data, A = R.atm, pl = R.plots;
+    const met = kv([[t("atm.met"), `${num(D.met.P, 1)} mbar, ${num(D.met.T, 1)} °C, ${num(D.met.RH, 1)} % (${esc(t("atm.met.source." + D.met.source))})`],
+      ["ZHD", num(D.zhd, 4) + " m"], ["ZWD", num(D.zwd, 4) + " m"], ["ZTD", num(D.zhd + D.zwd, 4) + " m"]]);
+    const cols = [{ k: "sv", l: "col.sv" }, { k: "el", l: "col.el", d: 2 }, { k: "mh", l: "col.mh", d: 3 }, { k: "mw", l: "col.mw", d: 3 },
+      { k: "T", l: "col.T", d: 3 }, { k: "I1_code", l: "col.I1code", d: 3 }, { k: "used", l: "col.used" }];
+    const tr = [{ type: "scatter", mode: "markers", x: pl.trop.el, y: pl.trop.T, marker: { size: 3, color: css("--l1"), opacity: .6 }, name: "T" }];
+    const tide = [{ type: "scatter", mode: "lines", x: pl.tide.t, y: pl.tide.up_cm, line: { color: css("--l2"), width: 2 }, name: "Up" }];
+    return `<p class="lead2">${esc(t("atm.lead"))}</p>${met}
+      ${table("atm", R.epoch.used, cols, A.rows, { offKey: "used" })}
+      <div class="grid2"><div>${chart("trop", t("atm.chart.trop"), tr, baseLayout({ showlegend: false, xaxis: { ...baseLayout().xaxis, title: { text: t("col.el") } }, yaxis: { ...baseLayout().yaxis, title: { text: "m" } } }))}</div>
+      <div>${chart("tide", t("atm.chart.tide"), tide, baseLayout({ showlegend: false, xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, shapes: [epochLine(pl.epoch_h)] }))}</div></div>`;
+  }
+
+  function pCorr(R) {
+    const C = R.corr, L = R.l3, A = R.atm;
+    const cols = [{ k: "sv", l: "col.sv" }, { k: "el", l: "col.el", d: 1 }, { k: "nadir", l: "col.nadir", d: 1 }, { k: "rec", l: "col.rec", d: 1 },
+      { k: "sat", l: "col.sat", d: 1 }, { k: "tide", l: "col.tide", d: 1 }, { k: "shapiro", l: "col.shapiro", d: 1 }, { k: "windup", l: "col.windup", d: 1 },
+      { k: "total", l: "col.total", d: 1 }, { k: "used", l: "col.used" }];
+    const info = kv([
+      [t("corr.recPco"), R.meta.rec_ant_found ? neuStr(A.rec_pco_l3_mm, 2) : esc(t("corr.recMissing"))],
+      [t("corr.tide"), sgn(A.tide_up_cm, 1) + " cm (" + num(A.tide_range_cm[0], 1) + " … " + num(A.tide_range_cm[1], 1) + ")"],
+      [t("corr.effect"), neuStr(L.no4b_static_minus_full_neu_mm)],
+      [t("l3.rms") + " (" + (lang === "tr" ? "düzeltmesiz" : "without") + ")", num(L.no4b_rms_phase_mm, 1) + " mm → " + num(L.rms_phase_mm, 1) + " mm"],
+    ]);
+    return `<p class="lead2">${esc(t("corr.lead"))}</p>${info}${table("corr", R.epoch.used + " [mm]", cols, C.rows, { offKey: "used" })}`;
+  }
+
+  function pL3(R) {
+    const L = R.l3, pl = R.plots;
+    const info = kv([
+      [t("l3.obs"), `${L.n_obs} / ${L.n_par}`], [t("l3.epochs"), `${L.n_epochs}, ${L.n_arcs}, ${L.n_zwd}`],
+      [t("l3.s0"), num(L.s0, 3)], [t("l3.rms"), `${num(L.rms_phase_mm, 1)} mm / ${num(L.rms_code_m, 2)} m`],
+      [t("l3.iter"), L.iter_mm.map((x) => num(x, 1)).join(", ") + " mm"],
+      [t("l3.kinMinusStatic"), neuStr(L.kin_minus_static_neu_mm)],
+    ]);
+    const res = bySat(pl.l3.t, pl.l3.v_mm, pl.l3.prn, "markers", 4);
+    const clk = [{ type: "scatter", mode: "lines+markers", x: pl.l3.clk_t, y: pl.l3.clk_us, line: { color: css("--l1"), width: 1.5 }, marker: { size: 4 }, name: "clock" }];
+    const zwd = [{ type: "scatter", mode: "lines", line: { shape: "hv", color: css("--l2"), width: 2 }, x: [...pl.l3.zwd_t, pl.l3.zwd_t[pl.l3.zwd_t.length - 1] + R.meta.params.zwd_block_h], y: [...pl.l3.zwd_mm, pl.l3.zwd_mm[pl.l3.zwd_mm.length - 1]], name: "ZWD" }];
+    const xa = { ...baseLayout().xaxis, title: { text: tLab() } };
+    return `<p class="lead2">${esc(t("l3.lead"))}</p>${info}
+      ${chart("l3res", t("l3.chart.res"), res, baseLayout({ xaxis: xa, shapes: [epochLine(pl.epoch_h)] }))}
+      <div class="grid2"><div>${chart("l3clk", t("l3.chart.clk"), clk, baseLayout({ xaxis: xa, showlegend: false, shapes: [epochLine(pl.epoch_h)] }))}</div>
+      <div>${chart("l3zwd", t("l3.chart.zwd"), zwd, baseLayout({ xaxis: xa, showlegend: false, shapes: [epochLine(pl.epoch_h)] }))}</div></div>`;
+  }
+
+  function pIono(R) {
+    const I = R.iono, pl = R.plots;
+    if (!I || !I.available) return `<p class="lead2">${esc(t("iono.lead"))}</p><p>${esc(t("iono.unavailable"))}</p>`;
+    const info = kv([
+      [t("iono.station"), num(I.vtec_station, 2) + " TECU"], [t("iono.rate"), sgn(I.vtec_rate, 2) + " TECU/h"],
+      [t("iono.dcbr"), num(I.dcb_rec_ns, 2) + " ns"], [t("iono.dcbs"), esc(t("iono.dcbs." + (I.sat_dcb === "file" ? "file" : "estimated")))],
+      [t("iono.coderms"), num(I.code_rms_m, 3) + " m"], [t("iono.modelrms"), num(I.model_rms_tecu, 2) + " TECU"],
+      ...(I.klob_minus ? [[t("iono.klob"), sgn(I.klob_minus.mean, 2) + " / " + num(I.klob_minus.rms, 2) + " m"]] : []),
+    ]);
+    const cols = [{ k: "sv", l: "col.sv" }, { k: "el", l: "col.el", d: 2 }, { k: "ipp_lat", l: "col.ipplat", d: 3 }, { k: "ipp_lon", l: "col.ipplon", d: 3 },
+      { k: "stec", l: "col.stec", d: 2 }, { k: "vtec", l: "col.vtec", d: 2 }, { k: "I1", l: "col.I1", d: 3 }, { k: "I2", l: "col.I2", d: 3 }];
+    if (I.rows.length && I.rows[0].I1_klob !== undefined) cols.push({ k: "I1_klob", l: "col.I1klob", d: 3 });
+    const xa = { ...baseLayout().xaxis, title: { text: tLab() } };
+    let charts = "";
+    if (pl.iono) {
+      const v = bySat(pl.iono.t, pl.iono.vtec, pl.iono.prn, "markers", 3);
+      const p4 = [{ type: "scatter", mode: "markers", x: pl.iono.t, y: pl.iono.p4, marker: { size: 2, color: css("--line") }, name: "P2 − P1", showlegend: false },
+        ...bySat(pl.iono.t, pl.iono.lev, pl.iono.prn, "markers", 2).map((tr) => ({ ...tr, showlegend: false }))];
+      charts = `<div class="grid2"><div>${chart("vtec", t("iono.chart.vtec"), v, baseLayout({ xaxis: xa, yaxis: { ...baseLayout().yaxis, title: { text: "TECU" } }, shapes: [epochLine(pl.epoch_h)] }))}</div>
+        <div>${chart("lev", t("iono.chart.lev"), p4, baseLayout({ xaxis: xa, yaxis: { ...baseLayout().yaxis, title: { text: "m" } }, shapes: [epochLine(pl.epoch_h)] }))}</div></div>`;
+    }
+    const a5cols = [{ k: "sv", l: "col.sv" }, { k: "P1", l: "col.P1", d: 3 }, { k: "P2", l: "col.P2", d: 3 }, { k: "P3", l: "col.P3", d: 3 },
+      { k: "L1", l: "col.L1", d: 3 }, { k: "L2", l: "col.L2", d: 3 }, { k: "L3", l: "col.L3", d: 3 }, { k: "used", l: "col.used" }];
+    return `<p class="lead2">${esc(t("iono.lead"))}</p>${info}${table("iono", R.epoch.used, cols, I.rows, { offKey: "used" })}
+      ${charts}${table("a5", "P3, L3 – " + R.epoch.used, a5cols, R.a5 || [], { offKey: "used" })}`;
+  }
+
+  function pSingle(R) {
+    const rows = R.single.map((s) => ({ freq: s.freq, model: t("model." + s.model), rms: s.rms_phase_mm,
+      N: s.neu_kin?.N ?? null, E: s.neu_kin?.E ?? null, U: s.neu_kin?.U ?? null, kin: s.neu_kin?.D3 ?? null, stat: s.neu_static?.D3 ?? null,
+      clock: s.clock_ns, ztd: s.ztd }));
+    const cols = [{ k: "freq", l: "col.freq" }, { k: "model", l: "col.model" }, { k: "rms", l: "col.rms", d: 1 },
+      { k: "N", l: "col.N", d: 3, sg: 1 }, { k: "E", l: "col.E", d: 3, sg: 1 }, { k: "U", l: "col.U", d: 3, sg: 1 },
+      { k: "kin", l: "col.kin3d", d: 3 }, { k: "stat", l: "col.stat3d", d: 3 }, { k: "clock", l: "col.clock", d: 1 }, { k: "ztd", l: "col.ztd", d: 4 }];
+    const noK = !R.data.klobuchar ? `<p class="note">${esc(t("single.noKlob"))}</p>` : "";
+    return `<p class="lead2">${esc(t("single.lead"))}</p>${noK}${table("single", R.epoch.used, cols, rows)}
+      <p class="note">${esc(t(R.meta.ref_source === "user" ? "sum.compare.lead.user" : "sum.compare.lead.static"))}</p>`;
+  }
+
+  function pMp(R) {
+    const M = R.mp, pl = R.plots;
+    const info = kv([[t("mp.epochRms"), `MP1 ${num(M.epoch_rms[0], 3)} m, MP2 ${num(M.epoch_rms[1], 3)} m`],
+      [t("mp.cutRms"), `MP1 ${num(M.cut_rms[0], 3)} m, MP2 ${num(M.cut_rms[1], 3)} m`],
+      [t("mp.allRms"), `MP1 ${num(M.all_rms[0], 3)} m, MP2 ${num(M.all_rms[1], 3)} m`]]);
+    const cols = [{ k: "sv", l: "col.sv" }, { k: "el", l: "col.el", d: 2 }, { k: "az", l: "col.az", d: 2 }, { k: "MP1", l: "col.MP1", d: 3, sg: 1 }, { k: "MP2", l: "col.MP2", d: 3, sg: 1 }];
+    const bcols = [{ k: "bin", l: "col.bin" }, { k: "MP1", l: "col.MP1", d: 3 }, { k: "MP2", l: "col.MP2", d: 3 }, { k: "n", l: "col.count", d: 0 }];
+    const sc = [{ type: "scatter", mode: "markers", name: "MP1", x: pl.mp.el, y: pl.mp.mp1, marker: { size: 3, color: css("--l1"), opacity: .5 } },
+      { type: "scatter", mode: "markers", name: "MP2", x: pl.mp.el, y: pl.mp.mp2, marker: { size: 3, color: css("--l2"), opacity: .5 } }];
+    const bar = [{ type: "bar", name: "MP1", x: M.per_sat.map((r) => r.sv), y: M.per_sat.map((r) => r.MP1), marker: { color: css("--l1") } },
+      { type: "bar", name: "MP2", x: M.per_sat.map((r) => r.sv), y: M.per_sat.map((r) => r.MP2), marker: { color: css("--l2") } }];
+    return `<p class="lead2">${esc(t("mp.lead"))}</p>${info}
+      <div class="grid2"><div>${table("mp", R.epoch.used, cols, M.rows)}</div><div>${table("mpbins", t("mp.bins"), bcols, M.bins)}</div></div>
+      <div class="grid2"><div>${chart("mpsc", t("mp.chart.scatter"), sc, baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: t("col.el") } }, yaxis: { ...baseLayout().yaxis, range: [-3, 3], title: { text: "m" } } }))}</div>
+      <div>${chart("mpbar", t("mp.chart.persat"), bar, baseLayout({ barmode: "group", yaxis: { ...baseLayout().yaxis, title: { text: "RMS [m]" } } }))}</div></div>`;
+  }
+
+  function pSpp(R) {
+    const S = R.spp, pl = R.plots;
+    const ep = S.epoch;
+    const info = kv([[t("spp.n"), `${S.n} (${esc(t("spp.source." + S.source))})`],
+      [t("spp.epoch"), ep ? ep.X.map((v) => coord(v, 3)).join("; ") + " m" : "–"],
+      [t("sum.clock"), ep ? num(ep.clock_ns, 1) + " ns" : "–"],
+      [t("spp.mean"), S.mean ? S.mean.map((v) => coord(v, 3)).join("; ") + " m" : "–"],
+      [t("spp.rms"), num(S.rms3d, 2) + " m"]]);
+    let ch = "";
+    if (pl.spp) {
+      const tr = ["N", "E", "U"].map((k, i) => ({ type: "scatter", mode: "lines+markers", name: "Δ" + k, x: pl.spp.t, y: pl.spp[k], marker: { size: 3 }, line: { width: 1, color: [css("--l1"), css("--l2"), PALETTE[2]][i] } }));
+      ch = chart("spp", t("spp.chart"), tr, baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, yaxis: { ...baseLayout().yaxis, range: [-10, 10], title: { text: "m" } }, shapes: [epochLine(pl.epoch_h)] }), true);
+    }
+    return `<p class="lead2">${esc(t("spp.lead"))}</p>${info}${ch}`;
+  }
+
+  // GitHub Pages'te yayinlaniyorsa kaynak kodu baglantisini repoya yonlendir
+  (() => {
+    const h = location.hostname, seg = location.pathname.split("/").filter(Boolean);
+    if (h.endsWith(".github.io")) {
+      const user = h.split(".")[0];
+      $("#src-link").href = `https://github.com/${user}/${seg[0] && !seg[0].includes(".") ? seg[0] : user + ".github.io"}`;
+    }
+  })();
+
+  // ------------------------------------------------------------------ baslat
+  applyLang();
+  drawHeroSky(true);
+})();
