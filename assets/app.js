@@ -170,6 +170,7 @@
     renderSteps();
     setStatus(workerReady ? t("run.running") + "…" : t("boot.pyodide") + "…");
     const one = (k) => (state.files[k] ? state.files[k][0].text : null);
+    state.lastRun = { files: Object.fromEntries(Object.entries(state.files).map(([k, v]) => [k, v.map((f) => f.name).join(", ")])), params: params() };
     ensureWorker().postMessage({
       type: "run",
       files: { obs: one("obs"), sp3: state.files.sp3.map((f) => f.text), nav: one("nav"), met: one("met"), atx: one("atx"), dcb: one("dcb") },
@@ -306,6 +307,177 @@
     const st = state.result.station.marker || "station";
     download(`fazppp_${st}_${state.result.epoch.used.replace(/:/g, "")}.json`, JSON.stringify(state.result, null, 1), "application/json");
   });
+
+  // ------------------------------------------------------------------ PDF
+  const JSPDF_URL = "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js";
+  const AUTOTABLE_URL = "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js";
+  const scriptCache = {};
+  function loadScript(src) {
+    if (!scriptCache[src]) scriptCache[src] = new Promise((res, rej) => {
+      const el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src)); document.head.appendChild(el);
+    });
+    return scriptCache[src];
+  }
+  async function fontB64(url) {
+    const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  const INK = [27, 39, 44], MUTED = [100, 117, 122], LINE = [200, 209, 204], PAPER = [238, 241, 236], ACCENT = [224, 165, 14];
+
+  async function exportPdf() {
+    const R = state.result;
+    if (!R) return;
+    const btn = $("#dl-pdf");
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = t("res.pdfBusy");
+    try {
+      await loadScript(JSPDF_URL);
+      await loadScript(AUTOTABLE_URL);
+      if (!window.Plotly) await new Promise((r) => setTimeout(r, 1000));
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+      doc.addFileToVFS("DejaVuSans.ttf", await fontB64("assets/fonts/DejaVuSans.subset.ttf"));
+      doc.addFont("DejaVuSans.ttf", "DejaVu", "normal");
+      doc.addFileToVFS("DejaVuSans-Bold.ttf", await fontB64("assets/fonts/DejaVuSans-Bold.subset.ttf"));
+      doc.addFont("DejaVuSans-Bold.ttf", "DejaVu", "bold");
+      const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 42, CW = W - 2 * M;
+      let y = M;
+      const ensure = (h) => { if (y + h > H - M - 14) { doc.addPage(); y = M; } };
+      const text = (str, { size = 9, bold = false, color = INK, gap = 4, indent = 0 } = {}) => {
+        if (!str) return;
+        doc.setFont("DejaVu", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(...color);
+        const lines = doc.splitTextToSize(String(str), CW - indent);
+        const lh = size * 1.35;
+        for (const ln of lines) { ensure(lh); doc.text(ln, M + indent, y + size); y += lh; }
+        y += gap;
+      };
+      const heading = (str, size = 14) => {
+        ensure(size * 2.6);
+        y += size * 0.5;
+        text(str, { size, bold: true, gap: 2 });
+        doc.setDrawColor(...ACCENT); doc.setLineWidth(1.4); doc.line(M, y, M + 46, y); y += 10;
+      };
+      const tableOpts = (extra) => Object.assign({
+        startY: y, margin: { left: M, right: M, bottom: M + 14 }, theme: "grid",
+        styles: { font: "DejaVu", fontSize: 7.2, cellPadding: 2.6, textColor: INK, lineColor: LINE, lineWidth: 0.4, overflow: "linebreak" },
+        headStyles: { fillColor: PAPER, textColor: INK, fontStyle: "bold" },
+        didDrawPage: () => {},
+      }, extra);
+      const afterTable = () => { y = doc.lastAutoTable.finalY + 10; };
+      const kvTable = (pairs) => {
+        doc.autoTable(tableOpts({ body: pairs, theme: "plain", styles: { font: "DejaVu", fontSize: 8.4, cellPadding: 2.2, textColor: INK },
+          columnStyles: { 0: { textColor: MUTED, cellWidth: CW * 0.42 }, 1: { fontStyle: "bold", halign: "right" } } }));
+        afterTable();
+      };
+      const lightLayout = (lay) => {
+        const L = JSON.parse(JSON.stringify(lay));
+        L.paper_bgcolor = "#ffffff"; L.plot_bgcolor = "#ffffff";
+        L.font = Object.assign({}, L.font, { color: "#1b272c", family: "DejaVu Sans, Arial, sans-serif" });
+        for (const ax of ["xaxis", "yaxis"]) if (L[ax]) Object.assign(L[ax], { gridcolor: "#e3e8e5", linecolor: "#b9c4bf", zerolinecolor: "#b9c4bf", tickcolor: "#b9c4bf" });
+        if (L.polar) { L.polar.bgcolor = "#ffffff"; ["radialaxis", "angularaxis"].forEach((k) => Object.assign(L.polar[k], { gridcolor: "#e3e8e5", linecolor: "#b9c4bf" })); }
+        return L;
+      };
+      const chartImage = async (id, title, tall) => {
+        const p = pending[id];
+        if (!p || !window.Plotly) return;
+        const w = 1000, h = tall ? 560 : 400;
+        const L = lightLayout(p.layout);
+        if (p.traces.filter((tr) => tr.showlegend !== false).length > 10) L.showlegend = false;
+        L.width = w; L.height = h;
+        const url = await Plotly.toImage({ data: p.traces, layout: L }, { format: "png", width: w, height: h, scale: 2 });
+        const ih = CW * h / w;
+        ensure(ih + 22);
+        if (title) text(title, { size: 8.6, bold: true, color: [60, 75, 80], gap: 2 });
+        doc.addImage(url, "PNG", M, y, CW, ih, undefined, "FAST");
+        y += ih + 10;
+      };
+
+      // ---- kapak bilgisi
+      const S = R.station, E = R.epoch, L3 = R.l3, run = state.lastRun || { files: {}, params: {} };
+      doc.setFillColor(...ACCENT); doc.circle(M + 7, y + 8, 5, "F");
+      doc.setFont("DejaVu", "bold"); doc.setFontSize(20); doc.setTextColor(...INK); doc.text(t("pdf.title"), M + 20, y + 15); y += 32;
+      text(`${S.marker || "–"}  ·  ${E.used_full} GPST`, { size: 11, bold: true, gap: 2 });
+      text(`${t("pdf.created")}: ${new Date().toLocaleString(lang === "tr" ? "tr-TR" : "en-GB")}   ·   https://salihtatci.github.io/fazPPP/`, { size: 8, color: MUTED, gap: 8 });
+      const P = R.meta.params;
+      kvTable([
+        [t("pdf.files"), Object.entries(run.files).map(([k, v]) => `${t("up." + k)}: ${v}`).join("\n") || "–"],
+        [t("pdf.params"), `${t("set.cutoff")}: ${P.cutoff}°\nσ faz/kod: ${P.sig_phase} / ${P.sig_code} m\n${t("set.zwd")}: ${P.zwd_block_h}\n${t("set.spp")}: ${P.spp_step}`],
+        [t("pdf.ref"), R.meta.ref_source === "user" ? R.meta.ref_xyz.map((v) => coord(v, 4)).join("; ") + " m" : t("pdf.none")],
+        [t("res.runtime"), num(R.meta.runtime_s, 1) + " s"],
+      ]);
+
+      // ---- sekmeler
+      for (const k of TABS) {
+        if (k !== "summary") { doc.addPage(); y = M; }
+        heading(t("tab." + k), 15);
+        const panel = $("#pn-" + k);
+        if (!panel) continue;
+        if (k === "summary") {
+          const xyz = (X, s) => ["X", "Y", "Z"].map((a, i) => [a, coord(X[i], 4) + " m", s ? "± " + num(s[i], 1) + " mm" : ""]);
+          text(`${S.marker}: ${t("sum.static")}`, { size: 10, bold: true, gap: 2 });
+          doc.autoTable(tableOpts({ body: xyz(L3.X, L3.sX_mm), theme: "plain", styles: { font: "DejaVu", fontSize: 11, cellPadding: 2.5, textColor: INK },
+            columnStyles: { 0: { cellWidth: 24, textColor: MUTED }, 1: { fontStyle: "bold" }, 2: { textColor: MUTED, halign: "right" } } }));
+          afterTable();
+          text(`φ ${S.lat}    λ ${S.lon}    h ${num(S.h, 4)} m`, { size: 9, gap: 8 });
+          if (L3.Xk) {
+            text(`${t("sum.kin")}, ${E.used}`, { size: 10, bold: true, gap: 2 });
+            doc.autoTable(tableOpts({ body: xyz(L3.Xk, L3.sXk_mm), theme: "plain", styles: { font: "DejaVu", fontSize: 10, cellPadding: 2.2, textColor: INK },
+              columnStyles: { 0: { cellWidth: 24, textColor: MUTED }, 1: { fontStyle: "bold" }, 2: { textColor: MUTED, halign: "right" } } }));
+            afterTable();
+            text(`${t("l3.kinMinusStatic")}: ${neuStr(L3.kin_minus_static_neu_mm)}`, { size: 8.6, color: MUTED, gap: 8 });
+          }
+          kvTable([
+            [`${t("sum.clock")}, ${E.used}`, `${num(L3.clock_ns, 1)} ns  (c·dt = ${num(L3.clock_m, 3)} ± ${num(L3.sclock_m, 3)} m)`],
+            [`${t("sum.ztd")}, ${E.used}`, `${num(L3.ztd, 4)} m  (Saastamoinen ${num(L3.ztd_model, 4)} m)`],
+            [t("sum.dop") + (L3.n_sat_kin ? ` (${L3.n_sat_kin} ${t("sum.sats")})` : ""), L3.dop && L3.dop.PDOP ? ["GDOP", "PDOP", "HDOP", "VDOP", "TDOP"].map((d) => `${d} ${num(L3.dop[d], 2)}`).join("  ") : "–"],
+          ]);
+        }
+        const els = $$("p.lead2, dl.kv, h4, .tbl-wrap table, p.chart-title, .chart, p.note, .warns", panel)
+          .filter((el) => !el.closest(".plate") && !(el.closest(".warns") && !el.classList.contains("warns")));
+        let pendingTitle = null;
+        for (const el of els) {
+          if (el.matches("p.lead2")) text(el.textContent, { size: 8.8, color: [60, 75, 80], gap: 8 });
+          else if (el.matches("p.note")) text(el.textContent, { size: 7.6, color: MUTED, gap: 6 });
+          else if (el.matches("h4")) { ensure(60); text(el.textContent, { size: 10, bold: true, gap: 3 }); }
+          else if (el.matches("dl.kv")) kvTable($$("dt", el).map((dt) => [dt.textContent, dt.nextElementSibling ? dt.nextElementSibling.textContent : ""]));
+          else if (el.matches("table")) {
+            const ncol = el.querySelectorAll("thead th").length;
+            doc.autoTable(tableOpts({ html: el, styles: { font: "DejaVu", fontSize: ncol > 9 ? 6.2 : ncol > 6 ? 6.9 : 7.6, cellPadding: 2.4, textColor: INK, lineColor: LINE, lineWidth: 0.4, halign: "right" },
+              columnStyles: { 0: { halign: "left" } },
+              didParseCell: (d) => {
+                if (d.column.index === 0) d.cell.styles.halign = "left";
+                if (d.row.raw && d.row.raw.classList && d.row.raw.classList.contains("off")) d.cell.styles.textColor = MUTED;
+              } }));
+            afterTable();
+          }
+          else if (el.matches("p.chart-title")) pendingTitle = el.textContent;
+          else if (el.matches(".chart")) { await chartImage(el.id.slice(3), pendingTitle, el.classList.contains("tall")); pendingTitle = null; }
+          else if (el.matches(".warns")) {
+            text(el.querySelector("h3").textContent, { size: 10, bold: true, gap: 2 });
+            $$("li", el).forEach((li) => text("• " + li.textContent, { size: 8.4, color: [156, 74, 28], gap: 1, indent: 6 }));
+            y += 6;
+          }
+        }
+      }
+
+      // ---- sayfa altliklari
+      const n = doc.getNumberOfPages();
+      for (let i = 1; i <= n; i++) {
+        doc.setPage(i);
+        doc.setFont("DejaVu", "normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.4); doc.line(M, H - M + 2, W - M, H - M + 2);
+        doc.text(`FazPPP · ${S.marker || ""} · ${E.used_full}`, M, H - M + 13);
+        doc.text(`${t("pdf.page")} ${i} / ${n}`, W - M, H - M + 13, { align: "right" });
+      }
+      doc.save(`fazppp_${S.marker || "station"}_${E.used.replace(/:/g, "")}.pdf`);
+    } catch (err) {
+      showError("internal", `${t("res.pdfFail")} ${err && err.message || err}`);
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+  $("#dl-pdf").addEventListener("click", exportPdf);
 
   const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
   const neuStr = (a, d = 1, u = "mm") => (a ? a.map((x) => sgn(x, d)).join(" / ") + " " + u : "–");
