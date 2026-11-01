@@ -15,6 +15,7 @@ Gözlem, navigasyon, SP3 ve meteoroloji dosyalarını yüklediğinizde FazPPP ş
 - MP1/MP2 kod çok yolluluğu
 - Yayın efemerisiyle P3 kod tek nokta konumu
 - İsteğe bağlı referans koordinatla (ör. ITRF) bütün çözümlerin karşılaştırılması
+- Bütün sonuçların (tablolar ve grafikler) tek PDF raporu olarak indirilmesi; ayrıca JSON ve tablo bazında CSV
 
 Hesaplar Python (yalnızca numpy) ile yazılmıştır ve [Pyodide](https://pyodide.org) sayesinde tarayıcıda çalışır. Dosyalar hiçbir sunucuya gönderilmez.
 
