@@ -6,10 +6,11 @@
 Gözlem, SP3, saat (CLK), navigasyon ve meteoroloji dosyalarını yüklediğinizde FazPPP şunları hesaplar:
 
 - RINEX okuma ve ön işleme (GPS L1/L2, Galileo E1/E5a): donmuş kayıtlar, alıcı saati 1 ms sıçramaları, GF ve Melbourne–Wübbena ile faz kopmaları (yüksek hızlı veride ek pencere testi), yaylar
+- **Kod ölçülerine Kalman filtresi:** her uydu ve yay için P1/P2'nin faz ile süzülmesi (iyonosfer ayrışmasız), yenilik testi
 - Uydu konumu ve saati: SP3 Lagrange ara değerlemesi, RINEX saat (CLK) dosyasından ya da SP3'ten uydu saati, gönderim anı, rölativistik düzeltme, Dünya dönüşü, yükseklik ve azimut
 - Troposfer: Saastamoinen + Herring eşleme fonksiyonları
 - Alıcı ve uydu anteni (ANTEX PCO/PCV), katı yer gelgiti (IERS 2010), Shapiro gecikmesi, faz sarılması (Wu vd. 1993)
-- L3 (iyonosferden bağımsız) faz + P3 kod çözümü, en küçük kareler ya da **Kalman filtresi + RTS yumuşatıcı** ile: statik konum (ve seçilen epokta ayrı konum) ya da her epokta ayrı konumla **kinematik rota**, alıcı saati, ıslak troposfer, GPS–Galileo sistemler arası saat farkı (ISB), ondalıklı belirsizlikler, DOP. Epok parametreleri epok epok önceden elimine edilir; 1 s'lik veri de çözülebilir
+- L3 (iyonosferden bağımsız) faz + P3 kod en küçük kareler çözümü: statik konum (ve seçilen epokta ayrı konum) ya da her epokta ayrı konumla **kinematik rota**, alıcı saati, ıslak troposfer, GPS–Galileo sistemler arası saat farkı (ISB), ondalıklı belirsizlikler, DOP. Epok parametreleri epok epok önceden elimine edilir; 1 s'lik veri de çözülebilir
 - İyonosfer (GPS): fazın koda seviyelenmesi, ince tabaka modeli, alıcı ve uydu DCB'leri, STEC/VTEC
 - Klobuchar modeliyle L1 ve L2 tek frekans faz çözümleri (GPS)
 - MP1/MP2 kod çok yolluluğu (GPS)
@@ -39,28 +40,27 @@ Denemek için **Örnek veriyle dene** düğmesi ISTA istasyonunun 28.08.2014 ver
 
 `.gz` dosyalar kabul edilir. Hatanaka (`.d`, `.crx`) ve `.Z` dosyalarını önce açın.
 
-## Kalman filtresi
+## Kod ölçülerine Kalman filtresi
 
-**Çözüm türü → Kinematik, Kalman filtresi** seçildiğinde ölçüler epok epok genişletilmiş Kalman filtresiyle (EKF) işlenir (`py/gnssfaz/estimate.py`, `kalman_solution`).
+Kod ölçüleri (P1, P2) çözüme girmeden önce her uydu ve her faz yayı için ayrı ayrı, tek durumlu bir Kalman filtresiyle süzülür (`py/gnssfaz/codefilter.py`). Durum, o frekanstaki kod uzaklığıdır; kodun iki epok arasındaki değişimi fazdan bilindiği için filtre fazın hassasiyetini koda aktarır.
 
-Durum vektörü: `x = [X, Y, Z, (Vx, Vy, Vz), c·dt, ZWD, ISB, B_1 … B_n]`
+Ölçü modeli (frekans *i*, γ₁ = 1, γ₂ = (f₁/f₂)²):
 
-1. **Tahmin (zaman güncellemesi):** `x⁻ = Φ x⁺`, `P⁻ = Φ P⁺ Φᵀ + Q`
-   - Sabit hız modeli: `Φ = [[I, Δt I], [0, I]]`, beyaz ivme gürültüsü `Q_XX = S Δt³/3`, `Q_XV = S Δt²/2`, `Q_VV = S Δt`, `S = diag(q_h, q_h, q_v)` (NEU'da, ECEF'e döndürülür)
-   - Rastgele yürüyüş: `Q_XX = S Δt`; statik: `Q_XX = 0`
-   - Alıcı saati her epokta yeniden başlatılır (beyaz gürültü), ZWD rastgele yürüyüş, ISB ve yay belirsizlikleri sabittir. Yay başladığında belirsizlik `L3 − P3` farkından büyük varyansla başlatılır.
-2. **Güncelleme (ölçü güncellemesi):** L3 faz ve P3 kod, `v = z − h(x⁻)`, `S = H P⁻ Hᵀ + R`, `K = P⁻ Hᵀ S⁻¹`, `x⁺ = x⁻ + K v`, `P⁺ = (I − K H) P⁻ (I − K H)ᵀ + K R Kᵀ` (Joseph biçimi). Doğrusallaştırma yinelemeli EKF ile yapılır. `R = σ² / sin²E`.
-3. **Yenilik testi:** `|v_i| / √S_ii > 5` olan kod ölçüsü atılır; faz ölçüsünde o yayın belirsizliği yeniden başlatılır (faz kopması).
-4. **RTS yumuşatıcı (geri geçiş):** `C_k = P⁺_k Φᵀ (P⁻_{k+1})⁻¹`, `x^s_k = x⁺_k + C_k (x^s_{k+1} − x⁻_{k+1})`, `P^s_k = P⁺_k + C_k (P^s_{k+1} − P⁻_{k+1}) C_kᵀ`.
-
-İleri filtre yalnızca o ana kadarki ölçüleri kullandığı için başta kod düzeyinde başlar ve belirsizlikler belirlendikçe yakınsar; "Kinematik rota" sekmesindeki standart sapma grafiği bu yakınsamayı gösterir. Yumuşatılmış çözüm toplu en küçük kareler çözümüne eşdeğerdir: ge.23O verisinde iki çözüm yatayda 1 mm'den, düşeyde (farklı troposfer modeli nedeniyle) 4 mm'den az farklıdır; ISTA'da statik modelli Kalman filtresi statik EKK çözümünü 0,5 mm içinde verir.
-
-Komut satırı:
-
-```bash
-python py/cli.py gozlem.23O COD0MGXFIN_..._ORB.SP3.gz --clk COD0MGXFIN_..._CLK.CLK.gz \
-  --mode kalman --kf-dyn pv --kf-qh 0.5 --kf-qv 0.01 --rate 1 --out kalman.json
 ```
+P_i = ρ + γ_i I + ε_P          Φ_i = ρ − γ_i I + B_i + ε_Φ
+ΔI  = Δ(Φ₁ − Φ₂) / (γ₂ − 1)
+```
+
+1. **Tahmin:** `x⁻_k = x⁺_(k−1) + ΔΦ_i + 2 γ_i ΔI`, `P⁻_k = P⁺_(k−1) + q`. İki frekansın fazıyla iyonosfer değişimi hesaba katıldığı için klasik Hatch filtresindeki kod–faz ayrışması (divergence) oluşmaz.
+2. **Güncelleme:** `v = P_i − x⁻_k`, `K = P⁻_k / (P⁻_k + R)`, `x⁺_k = x⁻_k + K v`, `P⁺_k = (1 − K) P⁻_k`.
+3. **Süreç gürültüsü:** `q = R κ² / (1 − κ)`, `κ = Δt / τ`; böylece kararlı durumda kazanç `K = Δt / τ` olur. τ (varsayılan 100 s) büyüdükçe süzme güçlenir; τ → ∞ kümülatif ortalamadır (Hatch filtresi).
+4. **Yenilik testi:** `|v| > 5 √(P⁻ + R)` ise kod aykırı sayılır, güncelleme atlanır. Üst üste 3 ret olursa ya da yeni bir faz yayı başlarsa (faz kopması) filtre ham kodla yeniden başlar: `x = P_i`, `P = R`.
+
+Süzülmüş kodlar statik/kinematik faz çözümüne, kod çözümüne, tek frekans çözümlerine ve iyonosfere girer; çok yolluluk (MP1/MP2) ham kodla hesaplanır. "Kalman filtresi" sekmesi uydu başına gürültü azalmasını (iyonosferden arındırılmış kod − faz farkı), kazancın ve σ'nın zamanla değişimini, kod çözümünün ve faz çözümünün ham ve süzülmüş kodla karşılaştırmasını gösterir.
+
+Örnek sonuçlar (τ = 100 s): ISTA (30 s) P1 gürültüsü 0,58 → 0,27 m, P2 0,61 → 0,27 m; kod çözümünün faz çözümünden yatay farkı 1,6 → 1,1 m. ge.23O (1 s, hareketli alıcı) P1 0,23 → 0,07 m, P2 0,27 → 0,10 m. Faz çözümü konumu fazdan belirlendiği için 1 mm'den az değişir; kod artıkları ve s₀ küçülür.
+
+Komut satırında filtreyi kapatmak için `--no-code-kf`, τ'yı değiştirmek için `--code-kf-tau 300`.
 
 ## Sınırlamalar
 
@@ -99,7 +99,7 @@ Yerelde denemek için klasörde `python -m http.server` çalıştırıp `http://
 index.html            arayüz
 worker.js             Pyodide'i yükleyip hesabı ayrı iş parçacığında çalıştırır
 assets/               stil, arayüz kodu, metinler (TR/EN)
-py/gnssfaz/           hesap paketi (readers, preprocess, orbit, corrections, estimate, pipeline ...)
+py/gnssfaz/           hesap paketi (readers, preprocess, codefilter, orbit, corrections, estimate, pipeline ...)
 py/web_entry.py       tarayıcı giriş noktası
 py/cli.py             komut satırı
 data/igs08.atx.gz     gömülü anten kalibrasyonu (2022 öncesi)
@@ -117,7 +117,7 @@ Hofmann-Wellenhof, Lichtenegger ve Wasle (2008) *GNSS*; Xu (2007) *GPS*; Kouba (
 
 ## English
 
-FazPPP computes static or kinematic positions from GPS and Galileo carrier-phase observations entirely in the browser (Python + numpy on Pyodide). Upload RINEX observation, SP3, clock (CLK), navigation and meteorological files; it runs preprocessing (clock jumps, cycle slips, arcs), satellite orbits and clocks, troposphere, antenna/tide/Shapiro/wind-up corrections, an L3 + P3 solution by least squares or by an extended Kalman filter with RTS smoothing (static, or a kinematic track with a position at every epoch; receiver clock, wet troposphere, GPS–Galileo inter-system bias, float ambiguities, DOP), ionosphere/TEC with DCB estimation, single-frequency L1/L2 solutions with Klobuchar, MP1/MP2 multipath and a broadcast-ephemeris code solution, and compares them with an optional reference coordinate.
+FazPPP computes static or kinematic positions from GPS and Galileo carrier-phase observations entirely in the browser (Python + numpy on Pyodide). Upload RINEX observation, SP3, clock (CLK), navigation and meteorological files; it runs preprocessing (clock jumps, cycle slips, arcs), a per-satellite Kalman filter that smooths the code observations with the carrier phase (divergence-free), satellite orbits and clocks, troposphere, antenna/tide/Shapiro/wind-up corrections, an L3 + P3 least-squares solution (static, or a kinematic track with a position at every epoch; receiver clock, wet troposphere, GPS–Galileo inter-system bias, float ambiguities, DOP), ionosphere/TEC with DCB estimation, single-frequency L1/L2 solutions with Klobuchar, MP1/MP2 multipath and a broadcast-ephemeris code solution, and compares them with an optional reference coordinate.
 
 To publish: push the folder to a GitHub repository and enable **Settings → Pages → Deploy from a branch → main / (root)**. To run locally: `python -m http.server` in the folder, then open `http://localhost:8000`.
 

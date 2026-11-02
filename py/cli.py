@@ -32,16 +32,12 @@ def main():
     ap.add_argument("obs")
     ap.add_argument("sp3", nargs="+")
     ap.add_argument("--clk", nargs="+", help="RINEX saat dosyalari (ornegin 30 s)")
-    ap.add_argument("--mode", choices=["static", "kinematic", "kalman"], default="static",
-                    help="static: statik EKK; kinematic: toplu kinematik EKK; kalman: Kalman filtresi + RTS")
-    ap.add_argument("--kf-dyn", choices=["pv", "rw", "static"], default="pv",
-                    help="Kalman dinamik modeli: pv sabit hiz, rw rastgele yuruyus, static sabit konum")
-    ap.add_argument("--kf-qh", type=float, help="yatay surec gurultusu (pv: m^2/s^3, rw: m^2/s)")
-    ap.add_argument("--kf-qv", type=float, help="dusey surec gurultusu")
-    ap.add_argument("--no-smooth", action="store_true", help="RTS yumusatmayi kapat (yalniz ileri filtre)")
+    ap.add_argument("--mode", choices=["static", "kinematic"], default="static")
     ap.add_argument("--rate", type=float, help="islem araligi [s]; verilmezse CLK (yoksa SP3) araligi")
     ap.add_argument("--systems", default="GE", help="G veya GE")
     ap.add_argument("--min-arc", type=float, default=10.0, help="en kisa kullanilir yay [dakika]")
+    ap.add_argument("--no-code-kf", action="store_true", help="kod olculerine Kalman filtresi uygulama")
+    ap.add_argument("--code-kf-tau", type=float, default=100.0, help="kod filtresinin zaman sabiti tau [s]")
     ap.add_argument("--nav")
     ap.add_argument("--met")
     ap.add_argument("--atx")
@@ -56,7 +52,7 @@ def main():
              "atx": _read(a.atx), "dcb": _read(a.dcb), "clk": [_read(p) for p in a.clk] if a.clk else None}
     res = pipeline.run(files, {"epoch": a.epoch, "cutoff": a.cutoff, "ref_xyz": a.ref, "mode": a.mode,
                                "rate": a.rate, "systems": a.systems, "min_arc_min": a.min_arc,
-                               "kf_dyn": a.kf_dyn, "kf_qh": a.kf_qh, "kf_qv": a.kf_qv, "kf_smooth": not a.no_smooth},
+                               "code_kf": not a.no_code_kf, "code_kf_tau": a.code_kf_tau},
                        progress=lambda m, f: print(f"[{f:4.0%}] {m}", file=sys.stderr),
                        default_atx={"igs08": os.path.join(here, "..", "data", "igs08.atx.gz"),
                                     "igs20": os.path.join(here, "..", "data", "igs20.atx.gz")})
@@ -67,16 +63,22 @@ def main():
         print(f"Kinematik L3: {K['n_epochs']} epok ({K['first']}-{K['last']}, {K['rate']:g} s), "
               f"yol {K['path_m']} m, medyan sigma NEU {K['sig_med_mm']} mm")
         print(f"  {res['epoch']['used']}: X={L['X'][0]:.4f} Y={L['X'][1]:.4f} Z={L['X'][2]:.4f}")
-        if K.get("kf"):
-            F = K["kf"]
-            print(f"  Kalman ({F['dyn']}, q={F['q_h']}/{F['q_v']}, yumusatma={F['smoothed']}): "
-                  f"atilan kod {F['n_reject']}, sifirlanan yay {F['n_reset']}, yakinsama {F['conv_min']} dk, "
-                  f"ileri-yumusatilmis RMS NEU {F['fwd_minus_smooth_rms_mm']} mm (son yari {F['fwd_minus_smooth_rms_late_mm']})")
     else:
         print(f"Statik L3 : X={L['X'][0]:.4f} Y={L['X'][1]:.4f} Z={L['X'][2]:.4f}")
     if L.get("isb_ns") is not None:
         print(f"GPS-Galileo ISB: {L['isb_ns']} +- {L['sisb_ns']} ns")
     print(f"s0={L['s0']}  faz RMS={L['rms_phase_mm']} mm  kod RMS={L['rms_code_m']} m")
+    K = res.get("codefilter") or {}
+    if K.get("enabled"):
+        T = K["total"] or {}
+        print(f"Kod Kalman filtresi (tau={K['tau']:g} s): P1 {T.get('raw1')} -> {T.get('filt1')} m, "
+              f"P2 {T.get('raw2')} -> {T.get('filt2')} m, atilan {K['n_rej']}, yeniden baslatma {K['n_restart']}")
+        if K.get("spp_cmp"):
+            c = K["spp_cmp"]
+            print(f"  Kod cozumu - faz cozumu ({c['n']} epok) yatay/3B RMS: ham {c['raw']['H']}/{c['raw']['D3']} m, "
+                  f"suzulmus {c['filt']['H']}/{c['filt']['D3']} m")
+        if K.get("phase_effect"):
+            print(f"  Faz cozumune etkisi: {K['phase_effect']}")
     if L["Xk"]:
         print(f"Kinematik {res['epoch']['used']}: X={L['Xk'][0]:.4f} Y={L['Xk'][1]:.4f} Z={L['Xk'][2]:.4f}")
     print(f"Sonuc: {a.out}")

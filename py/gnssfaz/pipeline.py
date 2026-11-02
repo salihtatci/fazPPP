@@ -6,7 +6,7 @@ from datetime import datetime
 
 import numpy as np
 
-from . import readers, preprocess as pre, orbit, corrections as cr, estimate as est, geo
+from . import readers, preprocess as pre, orbit, corrections as cr, estimate as est, geo, codefilter as cf
 from .const import (C, F1, F2, F7, LAM1, LAM2, A3, B3, GAMMA, LAM_NL, TECU_L1, OMEGA_E, MS, sv_name)
 from .timeutil import fmt, from_gps, day_start
 
@@ -65,21 +65,16 @@ def run(files, params=None, progress=None, default_atx=None):
     sig_code = float(params.get("sig_code", 1.0))
     zwd_block = float(params.get("zwd_block_h", 2.0)) * 3600.0
     spp_step = float(params.get("spp_step", 300.0))
-    _m = str(params.get("mode") or "static").lower()
-    mode = "kalman" if _m.startswith(("kal", "kf", "ekf")) else ("kinematic" if _m.startswith("kin") else "static")
-    is_kin = mode != "static"
-    kf_dyn = str(params.get("kf_dyn") or "pv").lower()
-    if kf_dyn not in ("pv", "rw", "static"):
-        kf_dyn = "pv"
-    kf_qh = float(params.get("kf_qh") if params.get("kf_qh") not in (None, "") else (0.5 if kf_dyn == "pv" else 1.0))
-    kf_qv = float(params.get("kf_qv") if params.get("kf_qv") not in (None, "") else (0.01 if kf_dyn == "pv" else 0.05))
-    kf_smooth = params.get("kf_smooth", True) not in (False, "0", 0, "false", "no")
+    mode = "kinematic" if str(params.get("mode") or "static").lower().startswith("kin") else "static"
     systems = "".join(c for c in str(params.get("systems") or "GE").upper() if c in "GE") or "G"
     if "G" not in systems:
         systems = "G" + systems
     rate_req = params.get("rate")
     rate_req = float(rate_req) if rate_req not in (None, "", 0) else None
     min_arc = float(params.get("min_arc_min") or 10.0)
+    code_kf = params.get("code_kf", True) not in (False, "0", 0, "false", "no")
+    code_kf_tau = float(params.get("code_kf_tau") or 100.0)
+    code_kf_thr = 5.0
 
     # ------------------------------------------------------------------ 1. okuma
     step("read", 0.02)
@@ -120,7 +115,7 @@ def run(files, params=None, progress=None, default_atx=None):
         warn.append("sys_skipped:" + ",".join(skipped))
     if "E:nodual" in H.get("systems_skipped", []):
         warn.append("gal_nodual")
-    if clk is None and is_kin:
+    if clk is None and mode == "kinematic":
         warn.append("kin_no_clk")
 
     # ------------------------------------------------------------------ 2. on isleme
@@ -132,6 +127,14 @@ def run(files, params=None, progress=None, default_atx=None):
         raise Hata("no_dual_freq|Dort olcusu (P1, P2, L1, L2) tam olan kayit yok; cift frekans gerekli.")
     isE = P["isE"]
     isG = ~isE
+
+    # ------------------------------------------------------------------ 2b. kod olculerine Kalman filtresi
+    step("codefilter", 0.15)
+    P["P1raw"], P["P2raw"] = P["P1"], P["P2"]
+    KF = None
+    if code_kf:
+        KF = cf.kalman_code_filter(P, tau=code_kf_tau, sig_code=sig_code, thr=code_kf_thr)
+        P["P1"], P["P2"] = KF["P1f"], KF["P2f"]
     f1, f2 = P["f1"], P["f2"]
     lam1, lam2 = C / f1, C / f2
     den = f1 ** 2 - f2 ** 2
@@ -267,7 +270,7 @@ def run(files, params=None, progress=None, default_atx=None):
         on_grid = np.abs(((t - sp3["t"][0] + 1e-3) % sp3_int) - 1e-3) < 1e-3
     base = valid & P["usable"] & (el >= cutoff) & np.isfinite(Ttrop)
     sel = base & on_grid
-    min_sat = 4 if (mode == "kinematic" or (mode == "kalman" and kf_dyn != "static")) else 1
+    min_sat = 4 if mode == "kinematic" else 1
     for _ in range(3):
         arcs_sel, cnt = np.unique(P["arc"][sel], return_counts=True)
         good_arcs = set(arcs_sel[cnt >= 3].tolist())
@@ -294,18 +297,17 @@ def run(files, params=None, progress=None, default_atx=None):
 
     dsel = subset(sel)
 
-    def solve(dd, ph, cd, cph, ccd):
-        if mode == "kalman":
-            return est.kalman_solution(dd, ph, cd, cph, ccd, X0, t_ep, Rn, sig_phase, sig_code,
-                                       dyn=kf_dyn, q_h=kf_qh, q_v=kf_qv, smooth=kf_smooth)
-        return est.phase_solution(dd, ph, cd, cph, ccd, X0, t_ep, Rn, sig_phase, sig_code, zwd_block, mode=mode)
-
     # ------------------------------------------------------------------ 8. L3 cozumu
     step("l3", 0.50)
-    sol = solve(dsel, L3[sel], P3[sel], corr_L3[sel], corr_P3[sel])
-    sol_no4b = solve(dsel, L3[sel], P3[sel], np.zeros(sel.sum()), np.zeros(sel.sum()))
-    if mode == "kalman" and kf_smooth and not sol["kf"]["smoothed"]:
-        warn.append("kf_no_smooth")
+    sol = est.phase_solution(dsel, L3[sel], P3[sel], corr_L3[sel], corr_P3[sel], X0, t_ep, Rn,
+                             sig_phase, sig_code, zwd_block, mode=mode)
+    sol_no4b = est.phase_solution(dsel, L3[sel], P3[sel], np.zeros(sel.sum()), np.zeros(sel.sum()), X0, t_ep, Rn,
+                                  sig_phase, sig_code, zwd_block, mode=mode)
+    sol_raw = None
+    if KF is not None:
+        P3raw = a3 * P["P1raw"] + b3 * P["P2raw"]
+        sol_raw = est.phase_solution(dsel, L3[sel], P3raw[sel], corr_L3[sel], corr_P3[sel], X0, t_ep, Rn,
+                                     sig_phase, sig_code, zwd_block, mode=mode)
     Xst = sol["X"]
     latS, lonS, hS = geo.xyz2llh(*Xst)
 
@@ -315,7 +317,7 @@ def run(files, params=None, progress=None, default_atx=None):
         Xref = np.array(ref, float)
     else:
         Xref = Xst.copy()
-        ref_src = "static" if not is_kin else "epoch"
+        ref_src = "static" if mode == "static" else "epoch"
 
     def neu(X):
         if X is None:
@@ -326,10 +328,10 @@ def run(files, params=None, progress=None, default_atx=None):
 
     j_ep = int(np.searchsorted(sol["epochs"], t_ep - 1e-3))
     k_sel = np.argmin(np.abs(t[sel] - t_ep))
-    zwd_add = sol["zwd_kin"] if (sol["has_kin"] or is_kin) else 0.0
+    zwd_add = sol["zwd_kin"] if (sol["has_kin"] or mode == "kinematic") else 0.0
     ztd_ep = float(ZHD[sel][k_sel] + ZWD[sel][k_sel] + zwd_add)
     ztd_model_ep = float(ZHD[sel][k_sel] + ZWD[sel][k_sel])
-    kin_like = sol["has_kin"] or is_kin
+    kin_like = sol["has_kin"] or mode == "kinematic"
 
     # ------------------------------------------------------------------ 9. epok tablolari
     step("tables", 0.60)
@@ -403,12 +405,14 @@ def run(files, params=None, progress=None, default_atx=None):
         kd = (B3 * dcbm if fr == "L1" else -A3 * dcbm)[sel_g]
         wl = (LAM1 if fr == "L1" else LAM2) * wu[sel_g]
         try:
-            s1 = solve(dsel_g, phase, code, common[sel_g] + drec + wl - Isel, common[sel_g] + drec + Isel + kd)
+            s1 = est.phase_solution(dsel_g, phase, code, common[sel_g] + drec + wl - Isel,
+                                    common[sel_g] + drec + Isel + kd, X0, t_ep, Rn, sig_phase, sig_code, zwd_block,
+                                    mode=mode)
         except np.linalg.LinAlgError:
             continue
         jj = int(np.searchsorted(s1["epochs"], t_ep - 1e-3))
         jj = min(jj, len(s1["epochs"]) - 1)
-        if is_kin:
+        if mode == "kinematic":
             Xk1, neu_st = s1["X"], None
             ztd1 = ztd_model_ep + s1.get("zwd_kin", 0.0)
         else:
@@ -417,7 +421,7 @@ def run(files, params=None, progress=None, default_atx=None):
         single.append({"freq": fr, "model": model, "X": _lst(s1["X"]), "Xk": _lst(Xk1) if Xk1 is not None else None,
                        "neu_static": neu_st, "neu_kin": neu(Xk1), "rms_phase_mm": _r(s1["rms_phase"] * 1e3, 1),
                        "clock_ns": _r(s1["clock"][jj] / C * 1e9, 1), "ztd": _r(ztd1, 4)})
-    if is_kin:
+    if mode == "kinematic":
         l3row = {"freq": "L3", "model": "iono-free", "X": _lst(Xst), "Xk": _lst(Xst), "neu_static": None,
                  "neu_kin": neu(Xst), "rms_phase_mm": _r(sol["rms_phase"] * 1e3, 1),
                  "clock_ns": _r(sol["clock"][j_ep] / C * 1e9, 1), "ztd": _r(ztd_ep, 4)}
@@ -434,6 +438,10 @@ def run(files, params=None, progress=None, default_atx=None):
     # ------------------------------------------------------------------ 13. kod SPP (GPS)
     step("spp", 0.88)
     spp = _spp_series(P, sp3, nav, X0, lat0, h0, Rn, Xref, t_ep, spp_step, cutoff, met, Pm, Tm_, RH)
+    kfres = {"enabled": False}
+    if KF is not None:
+        kfres = _codefilter_report(P, KF, sel, idx_ep, sol, sol_raw, mode, Rn, Xref, Xst, sp3, nav, X0, lat0, h0,
+                                   t_ep, spp, spp_step, cutoff, met, Pm, Tm_, RH, rate, day0, code_kf_tau, code_kf_thr)
     if mode == "static" and spp.get("series") and len(spp["series"]) >= 5:
         Ns = np.array([o["N"] for o in spp["series"]])
         Es = np.array([o["E"] for o in spp["series"]])
@@ -444,13 +452,13 @@ def run(files, params=None, progress=None, default_atx=None):
     # ------------------------------------------------------------------ 14. grafik verileri
     step("plots", 0.94)
     plots = _plots(P, t, prn, el, az, valid, sel, sol, idx_ep, t_ep, Ttrop, wu, tide_up, iono, mp, spp, day0)
-    kin = _kin_track(sol, Rn, Xref, day0, rate) if is_kin else None
+    kin = _kin_track(sol, Rn, Xref, day0, rate) if mode == "kinematic" else None
 
     # ------------------------------------------------------------------ 15. ozet
-    if is_kin:
+    if mode == "kinematic":
         solutions = [
-            {"name": "l3_kf_epoch" if mode == "kalman" else "l3_kin_epoch", "X": _lst(Xst), "sX_mm": _lst(sol["sX"] * 1e3, 1), "neu": neu(Xst)},
-            {"name": "l3_kf_no4b" if mode == "kalman" else "l3_kin_no4b", "X": _lst(sol_no4b["X"]), "sX_mm": _lst(sol_no4b["sX"] * 1e3, 1),
+            {"name": "l3_kin_epoch", "X": _lst(Xst), "sX_mm": _lst(sol["sX"] * 1e3, 1), "neu": neu(Xst)},
+            {"name": "l3_kin_no4b", "X": _lst(sol_no4b["X"]), "sX_mm": _lst(sol_no4b["sX"] * 1e3, 1),
              "neu": neu(sol_no4b["X"])},
         ]
     else:
@@ -479,8 +487,7 @@ def run(files, params=None, progress=None, default_atx=None):
                  "params": {"cutoff": cutoff, "sig_phase": sig_phase, "sig_code": sig_code,
                             "zwd_block_h": zwd_block / 3600, "spp_step": spp_step, "mode": mode,
                             "systems": systems, "rate": rate, "min_arc_min": min_arc,
-                            **({"kf_dyn": kf_dyn, "kf_qh": kf_qh, "kf_qv": kf_qv, "kf_smooth": kf_smooth}
-                               if mode == "kalman" else {})}},
+                            "code_kf": bool(code_kf), "code_kf_tau": code_kf_tau}},
         "station": {"marker": H["marker"], "receiver": H["receiver"], "antenna": H["antenna"].strip(),
                     "approx": _lst(H["approx"]), "delta_hen": _lst(H["delta_hen"]),
                     "obs_types": H["obs_types"], "used_codes": H["used_codes"], "rinex_version": H["version"],
@@ -523,10 +530,11 @@ def run(files, params=None, progress=None, default_atx=None):
                "s0": _r(sol["s0"], 3), "dof": sol["dof"], "n_obs": sol["n_obs"], "n_par": sol["n_par"],
                "n_epochs": sol["n_epochs"], "n_arcs": sol["n_arcs"], "n_zwd": sol["n_zwd"],
                "rms_phase_mm": _r(sol["rms_phase"] * 1e3, 1), "rms_code_m": _r(sol["rms_code"], 2),
-               "iter_mm": _lst(np.array(sol["iter"]) * 1e3, 1) if sol["iter"] else [],
+               "iter_mm": _lst(np.array(sol["iter"]) * 1e3, 1),
                "no4b_static_minus_full_neu_mm": _lst(Rn @ (sol_no4b["X"] - Xst) * 1e3, 1),
                "no4b_rms_phase_mm": _r(sol_no4b["rms_phase"] * 1e3, 1)},
         "kin": kin,
+        "codefilter": kfres,
         "iono": iono["summary"],
         "single": single,
         "mp": mp["summary"],
@@ -699,8 +707,9 @@ def _estimate_sat_dcb(lev, m, prn, t, M, fi, la, lat0, lon0, w, ns_tecu, k4):
 def _multipath(P, el, az, valid, idx_ep, cutoff):
     k = 2 / (GAMMA - 1)
     F1m, F2m = LAM1 * P["L1d"], LAM2 * P["L2d"]
-    MP1 = P["P1"] - (1 + k) * F1m + k * F2m
-    MP2 = P["P2"] - GAMMA * k * F1m + (GAMMA * k - 1) * F2m
+    P1r, P2r = P.get("P1raw", P["P1"]), P.get("P2raw", P["P2"])        # cok yolluluk ham kodun ozelligi
+    MP1 = P1r - (1 + k) * F1m + k * F2m
+    MP2 = P2r - GAMMA * k * F1m + (GAMMA * k - 1) * F2m
     m = P["usable"] & valid
     for a in np.unique(P["arc"][m]):
         mm = m & (P["arc"] == a)
@@ -739,37 +748,49 @@ def _multipath(P, el, az, valid, idx_ep, cutoff):
     return {"summary": summ, "series": {"el": el[ii], "mp1": MP1[ii], "mp2": MP2[ii], "t": P["t"][ii], "prn": P["prn"][ii]}}
 
 
-def _spp_series(P, sp3, nav, X0, lat0, h0, Rn, Xref, t_ep, step_s, cutoff, met, Pm, Tm_, RH):
+def _spp_series(P, sp3, nav, X0, lat0, h0, Rn, Xref, t_ep, step_s, cutoff, met, Pm, Tm_, RH, codes=None, grid=None):
     t, prn = P["t"], P["prn"]
+    C1, C2 = codes if codes is not None else (P["P1"], P["P2"])
     eps = np.unique(t)
-    grid = eps[np.abs(((eps - eps[0] + 1e-3) % step_s) - 1e-3) < 1e-3]
+    if grid is None:
+        grid = eps[np.abs(((eps - eps[0] + 1e-3) % step_s) - 1e-3) < 1e-3]
     if t_ep not in grid:
         grid = np.sort(np.r_[grid, t_ep])
     src = "broadcast" if nav else "sp3"
     out = []
     epoch_res = None
-    for tt in grid:
-        m = np.where((np.abs(t - tt) < 1e-3) & ~P["isE"])[0]
-        if len(m) < 5:
-            continue
-        P3 = A3 * P["P1"][m] + B3 * P["P2"][m]
-        Xs = np.full((len(m), 3), np.nan)
-        cd = np.full(len(m), np.nan)
-        for k, i in enumerate(m):
-            p_ = int(prn[i])
-            tx = tt - P3[k] / C
-            if nav:
-                e = orbit.select_eph(nav["eph"], p_, tx)
+    # uydu konum ve saatleri: izgara epoklarindaki butun GPS kayitlari icin uydu basina toplu
+    gk = np.round(t * 1000.0).astype(np.int64)
+    gm = np.where(np.isin(gk, np.round(np.asarray(grid) * 1000.0).astype(np.int64)) & ~P["isE"])[0]
+    P3g = A3 * C1[gm] + B3 * C2[gm]
+    txg = t[gm] - P3g / C
+    Xg = np.full((len(gm), 3), np.nan)
+    cdg = np.full(len(gm), np.nan)
+    for p_ in np.unique(prn[gm]):
+        jj = np.where(prn[gm] == p_)[0]
+        if nav:
+            for j in jj:
+                e = orbit.select_eph(nav["eph"], int(p_), txg[j])
                 if e is None:
                     continue
-                c0 = orbit.bc_clock(e, tx)
-                pos, drel = orbit.bc_position(e, tx - c0)
-                Xs[k], cd[k] = pos, (c0 + drel) * C        # P3 icin TGD gerekmez
-            else:
-                c0 = orbit.sp3_clock(sp3, p_, [tx])[0]
-                pos, vel = orbit.sp3_interp(sp3, p_, [tx - c0])
-                Xs[k] = pos[0]
-                cd[k] = (c0 - 2 * float(pos[0] @ vel[0]) / C ** 2) * C
+                c0 = orbit.bc_clock(e, txg[j])
+                pos, drel = orbit.bc_position(e, txg[j] - c0)
+                Xg[j], cdg[j] = pos, (c0 + drel) * C        # P3 icin TGD gerekmez
+        else:
+            c0 = orbit.sp3_clock(sp3, int(p_), txg[jj])
+            pos, vel = orbit.sp3_interp(sp3, int(p_), txg[jj] - c0)
+            Xg[jj] = pos
+            cdg[jj] = (c0 - 2 * np.einsum("ij,ij->i", pos, vel) / C ** 2) * C
+    og = np.argsort(t[gm], kind="stable")
+    tg_sorted = t[gm][og]
+    for tt in grid:
+        a0, a1 = np.searchsorted(tg_sorted, tt - 1e-3), np.searchsorted(tg_sorted, tt + 1e-3)
+        sl = og[a0:a1]
+        if len(sl) < 5:
+            continue
+        P3 = P3g[sl]
+        Xs = Xg[sl]
+        cd = cdg[sl]
         ok = np.isfinite(Xs).all(axis=1) & np.isfinite(cd) & np.isfinite(P3)
         if ok.sum() < 5:
             continue
@@ -842,8 +863,9 @@ def _plots(P, t, prn, el, az, valid, sel, sol, idx_ep, t_ep, Ttrop, wu, tide_up,
     if best is not None:
         _, i, m = best
         m = m[_dec(len(m), 1500)]
-        raw = LAM1 * P["L1"][m] - P["P1"][m]
-        cor = LAM1 * P["L1d"][m] - P["P1"][m]
+        P1r = P.get("P1raw", P["P1"])
+        raw = LAM1 * P["L1"][m] - P1r[m]
+        cor = LAM1 * P["L1d"][m] - P1r[m]
         cj = {"sv": sv_name(prn[i]), "t": hrs(t[m]), "raw_km": _lst((raw - raw[0]) / 1e3, 4),
               "cor_m": _lst(cor - np.median(cor), 3), "n_jumps": int(best[0][0] - 1)}
     # L3 duzeltmeleri, saat, ZTD
@@ -905,33 +927,115 @@ def _kin_track(sol, Rn, Xref, day0, rate):
             "moving_frac": _r(float(moving.sum()) / max(len(tt) - 1, 1), 3),
             "sig_med_mm": [_r(np.median(sN[:, 0]), 1), _r(np.median(sN[:, 1]), 1), _r(np.median(sN[:, 2]), 1)],
             "j_epoch": int(tr["j"])}
-    kf = sol.get("kf")
-    if kf is not None:
-        F = (kf["X_fwd"] - Xref) @ Rn.T
-        dF = F - d
-        sF = kf["sNEU_fwd"] * 1e3
-        for k in range(len(tt)):
-            rows[k].update({"fN": _r(F[k, 0], 4), "fE": _r(F[k, 1], 4), "fU": _r(F[k, 2], 4),
-                            "fsH": _r(math.hypot(sF[k, 0], sF[k, 1]), 1), "fsU": _r(sF[k, 2], 1)})
-        hs = np.hypot(sF[:, 0], sF[:, 1])
-        conv = None
-        bad = np.where(hs > 100.0)[0]                       # ileri filtre yatay sigma < 10 cm
-        if len(bad) < len(hs):
-            k0 = int(bad[-1] + 1) if len(bad) else 0
-            conv = _r((tt[min(k0, len(tt) - 1)] - tt[0]) / 60.0, 1)
-        late = tt >= tt[0] + 0.5 * (tt[-1] - tt[0])
-        summ["kf"] = {"dyn": kf["dyn"], "q_h": kf["q_h"], "q_v": kf["q_v"], "smoothed": kf["smoothed"],
-                      "n_state": kf["n_state"], "n_reject": kf["n_reject"], "n_reset": kf["n_reset"],
-                      "conv_min": conv,
-                      "fwd_minus_smooth_rms_mm": [_r(float(np.sqrt(np.mean(dF[:, i] ** 2))) * 1e3, 1) for i in range(3)],
-                      "fwd_minus_smooth_rms_late_mm": [_r(float(np.sqrt(np.mean(dF[late, i] ** 2))) * 1e3, 1) for i in range(3)],
-                      "resets": [{"t": fmt(a), "arc": int(b)} for a, b in kf["resets"][:50]]}
-        kfplot = {"fN": _lst(F[:, 0], 4), "fE": _lst(F[:, 1], 4), "fU": _lst(F[:, 2], 4),
-                  "dN": _lst(dF[:, 0], 4), "dE": _lst(dF[:, 1], 4), "dU": _lst(dF[:, 2], 4),
-                  "fsH": _lst(hs, 1), "fsU": _lst(sF[:, 2], 1), "sH": _lst(np.hypot(sN[:, 0], sN[:, 1]), 1)}
-    else:
-        kfplot = None
-    return {"summary": summ, "rows": rows, "kfplot": kfplot,
+    return {"summary": summ, "rows": rows,
             "plot": {"t": _lst((tt - day0) / 3600.0, 5), "N": _lst(d[:, 0], 4), "E": _lst(d[:, 1], 4),
                      "U": _lst(d[:, 2], 4), "sN": _lst(sN[:, 0], 1), "sE": _lst(sN[:, 1], 1), "sU": _lst(sN[:, 2], 1),
                      "n": [int(x) for x in tr["nsat"]], "pdop": _lst(tr["pdop"], 2), "v": _lst(sp, 3)}}
+
+
+def _codefilter_report(P, KF, sel, idx_ep, sol, sol_raw, mode, Rn, Xref, Xst, sp3, nav, X0, lat0, h0,
+                       t_ep, spp, spp_step, cutoff, met, Pm, Tm_, RH, rate, day0, tau, thr):
+    """Kod Kalman filtresinin raporu: gurultu azalmasi, kod cozumune ve faz cozumune etkisi, grafikler."""
+    t, prn = P["t"], P["prn"]
+    st = cf.noise_stats(P, KF, P["usable"], skip_sec=3.0 * tau)
+    rows = []
+    for r in st:
+        rows.append({"sv": sv_name(r["prn"]), "n": r["n"], "raw1": _r(r["raw1"], 3), "filt1": _r(r["filt1"], 3),
+                     "red1": _r(100 * (1 - r["filt1"] / r["raw1"]), 0) if r["raw1"] > 0 else None,
+                     "raw2": _r(r["raw2"], 3), "filt2": _r(r["filt2"], 3),
+                     "red2": _r(100 * (1 - r["filt2"] / r["raw2"]), 0) if r["raw2"] > 0 else None, "rej": r["rej"]})
+    tot = None
+    if st:
+        w = np.array([r["n"] for r in st], float)
+        av = lambda k: float(np.sqrt(np.average([r[k] ** 2 for r in st], weights=w)))
+        tot = {"raw1": _r(av("raw1"), 3), "filt1": _r(av("filt1"), 3), "raw2": _r(av("raw2"), 3), "filt2": _r(av("filt2"), 3)}
+
+    # kod cozumu (P3, GPS) ham ve suzulmus: faz cozumune gore fark
+    eps = np.unique(t[sel])
+    if mode == "kinematic":
+        tr = sol["track"]
+        ref_pos = {round(float(a), 3): tr["X"][k] for k, a in enumerate(tr["t"])}
+        stepn = max(1, int(math.ceil(len(eps) / 300.0)))
+        grid = eps[::stepn]
+    else:
+        ref_pos = None
+        grid = None
+    common = dict(sp3=sp3, nav=nav, X0=X0, lat0=lat0, h0=h0, Rn=Rn, Xref=Xref, t_ep=t_ep, step_s=spp_step,
+                  cutoff=cutoff, met=met, Pm=Pm, Tm_=Tm_, RH=RH)
+    s_raw = _spp_series(P, codes=(P["P1raw"], P["P2raw"]), grid=grid, **common)
+    s_flt = spp if grid is None else _spp_series(P, grid=grid, **common)
+
+    def diffs(series):
+        out = {}
+        for o in series.get("series") or []:
+            if ref_pos is None:
+                X = Xst
+            else:
+                X = ref_pos.get(round(o["t"], 3))
+                if X is None:
+                    continue
+            d = Rn @ (np.asarray(X) - Xref)
+            out[round(o["t"], 3)] = np.array([o["N"] - d[0], o["E"] - d[1], o["U"] - d[2]])
+        return out
+    dr, dfl = diffs(s_raw), diffs(s_flt)
+    ks = sorted(set(dr) & set(dfl))
+    spp_cmp = None
+    n_bad_cmp = 0
+    if ks:
+        A = np.array([dr[k] for k in ks])
+        B = np.array([dfl[k] for k in ks])
+        good = (np.linalg.norm(A, axis=1) < 50.0) & (np.linalg.norm(B, axis=1) < 50.0)   # bozuk epoklar (SPP ile ayni olcut)
+        n_bad_cmp = int((~good).sum())
+        A, B = A[good], B[good]
+        ks = [k for k, g in zip(ks, good) if g]
+    if ks:
+        rms = lambda X: {"N": _r(np.sqrt(np.mean(X[:, 0] ** 2)), 3), "E": _r(np.sqrt(np.mean(X[:, 1] ** 2)), 3),
+                         "U": _r(np.sqrt(np.mean(X[:, 2] ** 2)), 3),
+                         "H": _r(np.sqrt(np.mean(X[:, 0] ** 2 + X[:, 1] ** 2)), 3),
+                         "D3": _r(np.sqrt(np.mean(np.sum(X ** 2, 1))), 3)}
+        spp_cmp = {"n": len(ks), "n_bad": n_bad_cmp, "raw": rms(A), "filt": rms(B),
+                   "plot": {"t": _lst((np.array(ks) - day0) / 3600.0, 5),
+                            "H_raw": _lst(np.hypot(A[:, 0], A[:, 1]), 3), "H_filt": _lst(np.hypot(B[:, 0], B[:, 1]), 3),
+                            "U_raw": _lst(A[:, 2], 3), "U_filt": _lst(B[:, 2], 3)}}
+
+    # faz cozumune etkisi
+    phase_eff = None
+    if sol_raw is not None:
+        if mode == "kinematic":
+            d = (sol["track"]["X"] - sol_raw["track"]["X"]) @ Rn.T * 1e3
+            dd = {"rms_neu_mm": _lst(np.sqrt(np.mean(d ** 2, 0)), 2), "max_neu_mm": _lst(np.max(np.abs(d), 0), 1)}
+        else:
+            d = Rn @ (sol["X"] - sol_raw["X"]) * 1e3
+            dd = {"neu_mm": _lst(d, 2)}
+        phase_eff = {**dd, "rms_code_raw": _r(sol_raw["rms_code"], 3), "rms_code_filt": _r(sol["rms_code"], 3),
+                     "rms_phase_raw_mm": _r(sol_raw["rms_phase"] * 1e3, 2), "rms_phase_filt_mm": _r(sol["rms_phase"] * 1e3, 2),
+                     "s0_raw": _r(sol_raw["s0"], 3), "s0_filt": _r(sol["s0"], 3)}
+
+    # ornek uydu: epoktaki uydulardan en uzun yay
+    plot = None
+    best = None
+    for i in idx_ep:
+        a = P["arc"][i]
+        if a < 0:
+            continue
+        m = np.where(P["arc"] == a)[0]
+        if best is None or len(m) > len(best[1]):
+            best = (i, m)
+    if best is not None:
+        i, m = best
+        m = m[np.argsort(t[m])]
+        mm = m[_dec(len(m), 2500)]
+        c1r = KF["cmc1_raw"][m]
+        c1f = KF["cmc1_f"][m]
+        off = np.nanmean(c1r)
+        plot = {"sv": sv_name(prn[i]), "t": _lst((t[mm] - day0) / 3600.0, 5),
+                "cmc1_raw": _lst(KF["cmc1_raw"][mm] - off, 3), "cmc1_f": _lst(KF["cmc1_f"][mm] - off, 3),
+                "cmc2_raw": _lst(KF["cmc2_raw"][mm] - np.nanmean(KF["cmc2_raw"][m]), 3),
+                "cmc2_f": _lst(KF["cmc2_f"][mm] - np.nanmean(KF["cmc2_raw"][m]), 3),
+                "K1": _lst(KF["K1"][mm], 4), "s1": _lst(KF["s1"][mm], 3),
+                "rej_t": _lst((t[m][KF["rej1"][m] | KF["rej2"][m]] - day0) / 3600.0, 5)}
+    used = P["arc"] >= 0
+    return {"enabled": True, "tau": tau, "thr": thr, "rows": rows, "total": tot,
+            "n_rej": int(KF["rej1"][used].sum() + KF["rej2"][used].sum()), "n_restart": int(KF["n_restart"]),
+            "n_filtered": int(used.sum()), "k_ss": _r(min(float(P["interval"]) / tau, 1.0), 3),
+            "spp_cmp": spp_cmp, "phase_effect": phase_eff, "plot": plot}

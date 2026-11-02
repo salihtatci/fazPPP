@@ -66,7 +66,6 @@
             <select id="p-mode">
               <option value="static" data-i18n="set.mode.static">Statik</option>
               <option value="kinematic" data-i18n="set.mode.kinematic">Kinematik</option>
-              <option value="kalman" data-i18n="set.mode.kalman">Kinematik, Kalman filtresi</option>
             </select>
             <small data-i18n="set.mode.hint"></small>
           </label>
@@ -77,6 +76,11 @@
               <option value="G" data-i18n="set.systems.G">Yalnızca GPS</option>
             </select>
           </label>
+          <div class="field kfc">
+            <label class="check"><input id="p-ckf" type="checkbox" checked><span data-i18n="set.ckf">Kod ölçülerine Kalman filtresi</span></label>
+            <label class="tau"><span data-i18n="set.ckf.tau">Zaman sabiti τ (s)</span><input id="p-ckftau" type="number" min="1" step="10" value="100"></label>
+            <small data-i18n="set.ckf.hint"></small>
+          </div>
           <label class="field">
             <span data-i18n="set.epoch">Hesap epoğu</span>
             <input id="p-epoch" type="text" inputmode="numeric" placeholder="13:15:00" pattern="\d{1,2}:\d{2}(:\d{2})?" autocomplete="off">
@@ -96,23 +100,6 @@
             <small data-i18n="set.ref.hint"></small>
           </fieldset>
         </div>
-        <fieldset class="kf-box" id="kf-box" hidden>
-          <legend data-i18n="set.kf.title">Kalman filtresi</legend>
-          <div class="set-grid">
-            <label class="field">
-              <span data-i18n="set.kf.dyn">Dinamik model</span>
-              <select id="p-kfdyn">
-                <option value="pv" data-i18n="set.kf.dyn.pv">Sabit hız</option>
-                <option value="rw" data-i18n="set.kf.dyn.rw">Rastgele yürüyüş</option>
-                <option value="static" data-i18n="set.kf.dyn.static">Statik</option>
-              </select>
-            </label>
-            <label class="field narrow"><span data-i18n="set.kf.qh">q yatay</span><input id="p-kfqh" type="text" inputmode="decimal" placeholder="0,5"></label>
-            <label class="field narrow"><span data-i18n="set.kf.qv">q düşey</span><input id="p-kfqv" type="text" inputmode="decimal" placeholder="0,01"></label>
-            <label class="field check"><input id="p-kfsm" type="checkbox" checked><span data-i18n="set.kf.smooth">RTS yumuşatma</span></label>
-          </div>
-          <small class="kf-hint" data-i18n="set.kf.q.hint"></small>
-        </fieldset>
         <details class="adv">
           <summary data-i18n="set.advanced">Gelişmiş</summary>
           <div class="set-grid">
