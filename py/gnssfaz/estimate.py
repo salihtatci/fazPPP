@@ -119,13 +119,13 @@ def phase_solution(d, phase, code, corr_phase, corr_code, X0, kin_epoch, Rneu,
         if it == 0:
             key = erow[gr].astype(np.int64) * (ng + 1) + gc
             ukey = np.unique(key)
-            ue = ukey // (ng + 1)
+            ue = (ukey // (ng + 1)).astype(np.intp)          # Pyodide (wasm32): indisler intp olmali
             starts_e = np.searchsorted(ue, np.arange(ne))
             cnt_e = np.bincount(ue, minlength=ne)
             K = int(cnt_e.max())
-            Cidx = np.full((ne, K), ng, dtype=np.int64)        # ng: bos (sifir) sutun
-            posk = np.arange(len(ukey)) - starts_e[ue]
-            Cidx[ue, posk] = ukey % (ng + 1)
+            Cidx = np.full((ne, K), ng, dtype=np.intp)          # ng: bos (sifir) sutun
+            posk = (np.arange(len(ukey)) - starts_e[ue]).astype(np.intp)
+            Cidx[ue, posk] = (ukey % (ng + 1)).astype(np.intp)
             kk = posk[np.searchsorted(ukey, key)]            # her ogenin epok icindeki sirasi
             ek = erow[gr]
         NegS = np.zeros((ne, K, 4))
