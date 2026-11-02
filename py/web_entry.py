@@ -7,8 +7,11 @@ from gnssfaz import pipeline
 
 def run_json(files_json, params_json, progress=None, default_atx=None):
     try:
+        atx = default_atx
+        if isinstance(atx, str) and atx.startswith("{"):
+            atx = json.loads(atx)
         res = pipeline.run(json.loads(files_json), json.loads(params_json), progress=progress,
-                           default_atx=default_atx)
+                           default_atx=atx)
         return json.dumps({"ok": True, "result": res}, allow_nan=False)
     except Exception as e:  # noqa: BLE001
         msg = str(e)

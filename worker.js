@@ -18,8 +18,10 @@ async function boot() {
     const txt = await (await fetch("py/" + f, { cache: "no-cache" })).text();
     py.FS.writeFile("/app/" + f, txt);
   }
-  const atx = await (await fetch("data/igs08.atx.gz")).arrayBuffer();
-  py.FS.writeFile("/app/data/igs08.atx.gz", new Uint8Array(atx));
+  for (const name of ["igs08.atx.gz", "igs20.atx.gz"]) {
+    const atx = await (await fetch("data/" + name)).arrayBuffer();
+    py.FS.writeFile("/app/data/" + name, new Uint8Array(atx));
+  }
   py.runPython("import sys; sys.path.insert(0, '/app'); import web_entry");
   post({ type: "ready" });
 }
@@ -36,7 +38,8 @@ self.onmessage = async (ev) => {
       const progress = (step, frac) => post({ type: "progress", step, frac });
       const mod = py.globals.get("web_entry");
       const run = mod.run_json;
-      const out = run(JSON.stringify(msg.files), JSON.stringify(msg.params), progress, "/app/data/igs08.atx.gz");
+      const atxPaths = JSON.stringify({ igs08: "/app/data/igs08.atx.gz", igs20: "/app/data/igs20.atx.gz" });
+      const out = run(JSON.stringify(msg.files), JSON.stringify(msg.params), progress, atxPaths);
       run.destroy();
       mod.destroy();
       post({ type: "result", payload: out });

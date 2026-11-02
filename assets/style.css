@@ -140,8 +140,11 @@ p { margin: 0 0 1em; max-width: 72ch; }
 .field.ref { flex: 2 1 420px; }
 .field > span, .field legend { font-weight: 600; font-size: .92rem; padding: 0; }
 .field small { color: var(--muted); font-size: .8rem; line-height: 1.4; }
-.field input { font: inherit; font-variant-numeric: tabular-nums; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); color: var(--ink); width: 100%; }
+.field input, .field select { font: inherit; font-variant-numeric: tabular-nums; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); color: var(--ink); width: 100%; }
 .field input:invalid { border-color: var(--warn); }
+.field select { appearance: auto; min-height: 40px; }
+.chart.square { height: 520px; }
+@media (max-width: 640px) { .chart.square { height: 380px; } }
 .xyz { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 @media (max-width: 520px) { .xyz { grid-template-columns: 1fr; } }
 .adv .set-grid { margin-top: 14px; }
@@ -227,3 +230,10 @@ td.txt { text-align: left; }
 .foot { border-top: 1px solid var(--line); padding: 40px 0 56px; background: var(--sheet); }
 .foot h2 { font-size: 1.3rem; }
 .foot p { color: var(--ink-2); font-size: .95rem; }
+
+.field.kfc { gap: 8px; }
+.field.kfc .check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: .92rem; }
+.field.kfc .check input { width: auto; }
+.field.kfc .tau { display: flex; align-items: center; gap: 10px; font-size: .88rem; color: var(--ink-2); }
+.field.kfc .tau input { max-width: 110px; }
+.eq { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; line-height: 1.7; overflow-x: auto; white-space: pre; margin: 12px 0; }

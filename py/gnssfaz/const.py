@@ -1,10 +1,28 @@
-"""Fiziksel sabitler ve GPS frekanslari."""
+"""Fiziksel sabitler, GPS ve Galileo frekanslari, uydu adlari."""
 import math
 
 C = 299792458.0                      # isik hizi [m/s]
 F0 = 10.23e6
-F1 = 154 * F0                        # 1575.42 MHz
-F2 = 120 * F0                        # 1227.60 MHz
+F1 = 154 * F0                        # 1575.42 MHz (GPS L1, Galileo E1)
+F2 = 120 * F0                        # 1227.60 MHz (GPS L2)
+F5 = 115 * F0                        # 1176.45 MHz (Galileo E5a)
+F7 = 118 * F0                        # 1207.14 MHz (Galileo E5b)
+GAL = 100                            # ic numaralandirma: Galileo Exx -> 100 + xx
+
+
+def sv_name(p):
+    """Ic uydu numarasi -> 'G05' / 'E24'."""
+    p = int(p)
+    return f"E{p - GAL:02d}" if p >= GAL else f"G{p:02d}"
+
+
+def sv_num(sysc, n):
+    """('E', 24) -> 124; ('G', 5) -> 5; diger sistemler -> None."""
+    if sysc in ("G", " "):
+        return int(n)
+    if sysc == "E":
+        return GAL + int(n)
+    return None
 LAM1 = C / F1
 LAM2 = C / F2
 GAMMA = (F1 / F2) ** 2               # 1.6469

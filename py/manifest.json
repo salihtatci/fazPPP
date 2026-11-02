@@ -2,6 +2,8 @@
  "files": [
   "web_entry.py",
   "gnssfaz/__init__.py",
+  "gnssfaz/codefilter.py",
+  "gnssfaz/crinex.py",
   "gnssfaz/const.py",
   "gnssfaz/corrections.py",
   "gnssfaz/estimate.py",
