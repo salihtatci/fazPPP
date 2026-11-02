@@ -1,15 +1,28 @@
-"""On isleme: donmus kayit, alici saati sicramalari, GF/MW ile faz kopmasi ve yaylar."""
+"""On isleme: donmus kayit, alici saati sicramalari, GF/MW ile faz kopmasi ve yaylar.
+
+GPS (L1/L2) ve Galileo (E1/E5a ya da E5b) kayitlari birlikte islenir; her kaydin
+frekanslari uydu sistemine gore secilir.
+"""
 import math
 
 import numpy as np
 
-from .const import C, F1, F2, LAM1, LAM2, LAM_W, MS
+from .const import C, F1, F2, GAL, MS
 
 
-def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
+def freqs(prn, f2_gal):
+    """Kayit bazinda (f1, f2) [Hz]."""
+    isE = np.asarray(prn) >= GAL
+    f1 = np.full(len(isE), F1)
+    f2 = np.where(isE, f2_gal if f2_gal else np.nan, F2)
+    return f1, f2
+
+
+def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0, max_gap=None):
     t, prn = obs["t"], obs["prn"]
     P1, P2, L1, L2 = (obs[k].copy() for k in ("P1", "P2", "L1", "L2"))
     interval = float(obs["header"]["interval"])
+    f2_gal = (obs["header"].get("f2") or {}).get("E")
     n0 = len(t)
     order = np.lexsort((t, prn))                       # uydu, sonra zaman
     t, prn, P1, P2, L1, L2 = (a[order] for a in (t, prn, P1, P2, L1, L2))
@@ -27,9 +40,12 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
     t, prn, P1, P2, L1, L2, C1 = (a[full] for a in (t, prn, P1, P2, L1, L2, C1))
     same = np.r_[False, prn[1:] == prn[:-1]]
     dt = np.r_[np.nan, np.diff(t)]
+    f1, f2 = freqs(prn, f2_gal)
+    lam1, lam2 = C / f1, C / f2
+    lamw = C / (f1 - f2)
 
     # 2) alici saati sicramalari: tum uydularda ayni anda d(P1 - lam1 L1) ~ k * 299 792 m
-    dcmc = np.r_[np.nan, np.diff(P1) - LAM1 * np.diff(L1)]
+    dcmc = np.r_[np.nan, np.diff(P1) - lam1[1:] * np.diff(L1)]
     cons = same & (np.abs(dt - interval) < 0.5 * interval)
     ep = np.unique(t)
     jumps = []
@@ -50,12 +66,12 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
                 jumps.append({"t": float(tt[a]), "median_m": med, "nsat": int(b - a), "k_ms": k})
     K = np.cumsum(k_ep)
     Krec = K[np.searchsorted(ep, t)]
-    L1d = L1 + Krec * F1 * 1e-3
-    L2d = L2 + Krec * F2 * 1e-3
+    L1d = L1 + Krec * f1 * 1e-3
+    L2d = L2 + Krec * f2 * 1e-3
 
     # 3) GF ve MW
-    GF = LAM1 * L1d - LAM2 * L2d
-    MW = ((F1 * LAM1 * L1d - F2 * LAM2 * L2d) / (F1 - F2) - (F1 * P1 + F2 * P2) / (F1 + F2)) / LAM_W
+    GF = lam1 * L1d - lam2 * L2d
+    MW = ((f1 * lam1 * L1d - f2 * lam2 * L2d) / (f1 - f2) - (f1 * P1 + f2 * P2) / (f1 + f2)) / lamw
     if gf_thr is None:
         gf_thr = 0.10 if interval <= 30 else min(0.5, 0.10 * interval / 30.0)
 
@@ -67,7 +83,9 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
     prev = None                          # (t, GF)
     mw_sum = 0.0
     mw_n = 0
-    gap = 1.5 * interval
+    # yuksek hizli veride (ornegin 1 s) birkac epokluk kesinti yeni yay acmaz;
+    # kopma varsa GF/MW testi yakalar
+    gap = max(1.5 * interval, 30.0) if max_gap is None else max(1.5 * interval, float(max_gap))
     t_last = -1e99
     for i in range(n):
         new = False
@@ -92,6 +110,61 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
         prev = (t[i], GF[i], prn[i])
         t_last = t[i]
 
+    # 4b) yuksek hizli veride (<= 5 s) pencere testi: epoktan epoga farkta gurultuye gomulen kucuk
+    # kopmalar (ornegin L1 ve L2'de esit devir: GF'de birkac cm, MW'de sifir) icin yayin her
+    # noktasinda oncesi ve sonrasi W kayda dogru uydurulur, sinirdaki degerler karsilastirilir.
+    # Dogru uydurma, yavas degisimleri (iyonosfer, alcak uydularda yurume sirasinda cok yolluluk)
+    # basamak sanmayi onler.
+    n_win = 0
+    if interval <= 5.0 and arc_no >= 0:
+        W = max(5, int(round(20.0 / interval)))
+        thr_gf, thr_mw = 0.04, 2.0
+        next_arc = arc_no + 1
+        xb = (W - 1) / 2.0
+        sxx = W * (W * W - 1) / 12.0
+
+        def edge_fits(y, k):
+            cy = np.r_[0.0, np.cumsum(y)]
+            jj = np.arange(len(y), dtype=float)
+            cjy = np.r_[0.0, np.cumsum(jj * y)]
+            out = []
+            for s0, x0 in ((k - W, W - 0.5), (k, -0.5)):
+                sy = cy[s0 + W] - cy[s0]
+                sxy = (cjy[s0 + W] - cjy[s0]) - s0 * sy
+                ym = sy / W
+                b = (sxy - xb * sy) / sxx
+                out.append(ym + b * (x0 - xb))
+            return out[1] - out[0]
+
+        for a in range(arc_no + 1):
+            m = np.where(arc == a)[0]
+            if len(m) < 2 * W + 1:
+                continue
+            tt = t[m]
+            k = np.arange(W, len(m) - W + 1)
+            dg = edge_fits(GF[m], k)
+            dw = edge_fits(MW[m], k)
+            span_ok = (tt[np.minimum(k + W - 1, len(m) - 1)] - tt[k - W]) <= 3.0 * W * interval
+            score = np.maximum(np.abs(dg) / thr_gf, np.abs(dw) / thr_mw) * span_ok
+            cand = np.where(score > 1.0)[0]
+            if not len(cand):
+                continue
+            cuts = []
+            grp = [cand[0]]
+            for c in cand[1:]:
+                if c - grp[-1] <= W:
+                    grp.append(c)
+                else:
+                    cuts.append(grp[int(np.argmax(score[grp]))])
+                    grp = [c]
+            cuts.append(grp[int(np.argmax(score[grp]))])
+            for c in cuts:
+                j0 = int(k[c])
+                arc[m[j0:]] = next_arc
+                next_arc += 1
+                n_win += 1
+        arc_no = next_arc - 1
+
     # yay istatistikleri ve kullanilabilirlik
     min_n = max(3, int(math.ceil(min_arc_sec / interval)))
     arcs = []
@@ -113,9 +186,10 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0):
     usable &= ~outlier
 
     return {"t": t, "prn": prn, "P1": P1, "P2": P2, "C1": C1, "L1": L1, "L2": L2, "L1d": L1d, "L2d": L2d,
+            "f1": f1, "f2": f2, "isE": prn >= GAL,
             "GF": GF, "MW": MW, "arc": arc, "outlier": outlier, "usable": usable,
             "jumps": jumps, "K": Krec, "arcs": arcs, "interval": interval,
             "stats": {"n_records": n0, "n_frozen": n_frozen, "n_incomplete": n_missing,
                       "n_complete": n, "n_arcs": len(arcs), "n_usable_arcs": int(usable_arc.sum()),
-                      "n_outlier": int(outlier.sum()), "n_usable": int(usable.sum()),
+                      "n_outlier": int(outlier.sum()), "n_usable": int(usable.sum()), "n_win_slips": n_win,
                       "gf_thr": gf_thr, "mw_thr": mw_thr, "min_arc_epochs": min_n}}

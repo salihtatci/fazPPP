@@ -17,6 +17,7 @@
     $$(".lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
     renderSlots();
     renderMethod();
+    syncKf();
     if (skyData) drawHeroSky(false);
     if (state.result) renderResults(state.result, state.activeTab);
   }
@@ -42,12 +43,15 @@
   }
   const sgn = (v, d = 3) => (v === null || v === undefined ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + num(Math.abs(v), d));
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // ic uydu numarasi: GPS 1-32, Galileo 100 + PRN
+  const svn = (p) => (p >= 100 ? "E" + String(p - 100).padStart(2, "0") : "G" + String(p).padStart(2, "0"));
 
   // ------------------------------------------------------------------ dosya yuvalari
   const SLOTS_MAIN = [
     { id: "obs", req: true, ext: ".o,.obs,.rnx,.gz,.*o" },
     { id: "nav", req: false, ext: ".n,.nav,.rnx,.gz,.*n" },
     { id: "sp3", req: true, multi: true, ext: ".sp3,.SP3,.gz,.eph" },
+    { id: "clk", req: false, multi: true, ext: ".clk,.CLK,.gz" },
     { id: "met", req: false, ext: ".m,.met,.rnx,.gz,.*m" },
   ];
   const SLOTS_MORE = [
@@ -158,6 +162,9 @@
       ref_xyz: ref.every((x) => x !== null) ? ref : null,
       sig_phase: n("#p-sp") ?? 0.01, sig_code: n("#p-sc") ?? 1.0,
       zwd_block_h: n("#p-zwd") ?? 2, spp_step: n("#p-spp") ?? 300,
+      mode: $("#p-mode").value, systems: $("#p-sys").value,
+      rate: n("#p-rate"), min_arc_min: n("#p-minarc") ?? 10,
+      kf_dyn: $("#p-kfdyn").value, kf_qh: n("#p-kfqh"), kf_qv: n("#p-kfqv"), kf_smooth: $("#p-kfsm").checked,
     };
   }
 
@@ -173,11 +180,20 @@
     state.lastRun = { files: Object.fromEntries(Object.entries(state.files).map(([k, v]) => [k, v.map((f) => f.name).join(", ")])), params: params() };
     ensureWorker().postMessage({
       type: "run",
-      files: { obs: one("obs"), sp3: state.files.sp3.map((f) => f.text), nav: one("nav"), met: one("met"), atx: one("atx"), dcb: one("dcb") },
+      files: { obs: one("obs"), sp3: state.files.sp3.map((f) => f.text), clk: state.files.clk ? state.files.clk.map((f) => f.text) : null,
+        nav: one("nav"), met: one("met"), atx: one("atx"), dcb: one("dcb") },
       params: params(),
     });
   }
   $("#run").addEventListener("click", run);
+  const syncKf = () => {
+    $("#kf-box").hidden = $("#p-mode").value !== "kalman";
+    const pv = $("#p-kfdyn").value === "pv";
+    $("#p-kfqh").placeholder = (pv ? 0.5 : 1).toLocaleString(lang === "tr" ? "tr-TR" : "en-GB");
+    $("#p-kfqv").placeholder = (pv ? 0.01 : 0.05).toLocaleString(lang === "tr" ? "tr-TR" : "en-GB");
+  };
+  $("#p-mode").addEventListener("change", syncKf);
+  $("#p-kfdyn").addEventListener("change", syncKf);
 
   function onResult(payload) {
     state.running = false;
@@ -213,7 +229,8 @@
         const txt = await (await fetch(DEMO.dir + DEMO[k])).text();
         state.files[k] = [{ name: DEMO[k], text: txt }];
       }
-      delete state.files.atx; delete state.files.dcb;
+      delete state.files.atx; delete state.files.dcb; delete state.files.clk;
+      $("#p-mode").value = "static"; $("#p-sys").value = "GE"; $("#p-rate").value = ""; syncKf();
       $("#p-epoch").value = DEMO.epoch;
       [$("#p-rx").value, $("#p-ry").value, $("#p-rz").value] = DEMO.ref;
       renderSlots();
@@ -272,7 +289,12 @@
   function table(id, title, cols, rows, opts = {}) {
     state.csv[id] = { cols, rows };
     const head = cols.map((c) => `<th scope="col">${esc(t(c.l))}</th>`).join("");
-    const body = rows.map((r) => {
+    let shown = rows;
+    if (opts.maxRows && rows.length > opts.maxRows) {
+      const step = rows.length / opts.maxRows;
+      shown = Array.from({ length: opts.maxRows }, (_, i) => rows[Math.floor(i * step)]);
+    }
+    const body = shown.map((r) => {
       const off = opts.offKey && r[opts.offKey] === false;
       return `<tr${off ? ' class="off"' : ""}>` + cols.map((c) => {
         const v = r[c.k];
@@ -402,7 +424,7 @@
       const P = R.meta.params;
       kvTable([
         [t("pdf.files"), Object.entries(run.files).map(([k, v]) => `${t("up." + k)}: ${v}`).join("\n") || "–"],
-        [t("pdf.params"), `${t("set.cutoff")}: ${P.cutoff}°\nσ faz/kod: ${P.sig_phase} / ${P.sig_code} m\n${t("set.zwd")}: ${P.zwd_block_h}\n${t("set.spp")}: ${P.spp_step}`],
+        [t("pdf.params"), `${t("set.mode")}: ${t("set.mode." + (P.mode || "static"))}\n${t("set.systems")}: ${t("set.systems." + (P.systems || "G"))}\n${t("set.rate")}: ${P.rate ?? "–"}${P.kf_dyn ? `\n${t("set.kf.dyn")}: ${t("set.kf.dyn." + P.kf_dyn)}, q ${P.kf_qh} / ${P.kf_qv}, RTS ${P.kf_smooth ? "✓" : "–"}` : ""}\n${t("set.cutoff")}: ${P.cutoff}°\nσ faz/kod: ${P.sig_phase} / ${P.sig_code} m\n${t("set.zwd")}: ${P.zwd_block_h}\n${t("set.spp")}: ${P.spp_step}`],
         [t("pdf.ref"), R.meta.ref_source === "user" ? R.meta.ref_xyz.map((v) => coord(v, 4)).join("; ") + " m" : t("pdf.none")],
         [t("res.runtime"), num(R.meta.runtime_s, 1) + " s"],
       ]);
@@ -415,7 +437,7 @@
         if (!panel) continue;
         if (k === "summary") {
           const xyz = (X, s) => ["X", "Y", "Z"].map((a, i) => [a, coord(X[i], 4) + " m", s ? "± " + num(s[i], 1) + " mm" : ""]);
-          text(`${S.marker}: ${t("sum.static")}`, { size: 10, bold: true, gap: 2 });
+          text(R.kin ? `${S.marker}: ${t(L3.mode === "kalman" ? "sum.kfTrack" : "sum.kinTrack")}, ${E.used} (${t("sum.kinAt")})` : `${S.marker}: ${t("sum.static")}`, { size: 10, bold: true, gap: 2 });
           doc.autoTable(tableOpts({ body: xyz(L3.X, L3.sX_mm), theme: "plain", styles: { font: "DejaVu", fontSize: 11, cellPadding: 2.5, textColor: INK },
             columnStyles: { 0: { cellWidth: 24, textColor: MUTED }, 1: { fontStyle: "bold" }, 2: { textColor: MUTED, halign: "right" } } }));
           afterTable();
@@ -431,6 +453,7 @@
             [`${t("sum.clock")}, ${E.used}`, `${num(L3.clock_ns, 1)} ns  (c·dt = ${num(L3.clock_m, 3)} ± ${num(L3.sclock_m, 3)} m)`],
             [`${t("sum.ztd")}, ${E.used}`, `${num(L3.ztd, 4)} m  (Saastamoinen ${num(L3.ztd_model, 4)} m)`],
             [t("sum.dop") + (L3.n_sat_kin ? ` (${L3.n_sat_kin} ${t("sum.sats")})` : ""), L3.dop && L3.dop.PDOP ? ["GDOP", "PDOP", "HDOP", "VDOP", "TDOP"].map((d) => `${d} ${num(L3.dop[d], 2)}`).join("  ") : "–"],
+            ...(L3.isb_ns !== null && L3.isb_ns !== undefined ? [[t("sum.isb"), `${num(L3.isb_ns, 2)} ± ${num(L3.sisb_ns, 2)} ns`]] : []),
           ]);
         }
         const els = $$("p.lead2, dl.kv, h4, .tbl-wrap table, p.chart-title, .chart, p.note, .warns", panel)
@@ -521,7 +544,7 @@
     const g = {};
     for (let i = 0; i < tArr.length; i++) {
       if (yArr[i] === null) continue;
-      const k = "G" + String(prnArr[i]).padStart(2, "0");
+      const k = svn(prnArr[i]);
       (g[k] = g[k] || { x: [], y: [] }).x.push(tArr[i]); g[k].y.push(yArr[i]);
     }
     return Object.entries(g).sort().map(([k, v], i) => ({ type: "scatter", mode, name: k, x: v.x, y: v.y,
@@ -530,13 +553,16 @@
   const epochLine = (h) => ({ type: "line", x0: h, x1: h, yref: "paper", y0: 0, y1: 1, line: { color: css("--accent"), width: 2, dash: "dot" } });
 
   // ------------------------------------------------------------------ sonuclar
-  const TABS = ["summary", "pre", "orbit", "atm", "corr", "l3", "iono", "single", "mp", "spp"];
+  const TABS_BASE = ["summary", "pre", "orbit", "atm", "corr", "l3", "iono", "single", "mp", "spp"];
+  let TABS = TABS_BASE.slice();
   function renderResults(R, active) {
     Object.keys(pending).forEach((k) => delete pending[k]);
+    TABS = R.kin ? ["summary", "kin", ...TABS_BASE.slice(1)] : TABS_BASE.slice();
+    if (!TABS.includes(active)) active = "summary";
     $("#runtime").textContent = `${t("res.runtime")}: ${num(R.meta.runtime_s, 1)} s`;
     $("#tabs").innerHTML = TABS.map((k) => `<button type="button" role="tab" id="tab-${k}" aria-controls="pn-${k}" aria-selected="${k === active}" data-tab="${k}">${esc(t("tab." + k))}</button>`).join("");
     const html = { summary: pSummary(R), pre: pPre(R), orbit: pOrbit(R), atm: pAtm(R), corr: pCorr(R), l3: pL3(R),
-      iono: pIono(R), single: pSingle(R), mp: pMp(R), spp: pSpp(R) };
+      iono: pIono(R), single: pSingle(R), mp: pMp(R), spp: pSpp(R), kin: R.kin ? pKin(R) : "" };
     $("#panels").innerHTML = TABS.map((k) => `<section class="panel" role="tabpanel" id="pn-${k}" aria-labelledby="tab-${k}" ${k === active ? "" : "hidden"}>${html[k]}</section>`).join("");
     $$("#tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
     $("#tabs").addEventListener("keydown", (e) => {
@@ -573,7 +599,7 @@
     return `
       <div class="plate">
         <div class="plate-main">
-          <h3>${esc(S.marker || t("sum.station"))}: ${esc(t("sum.static"))}</h3>
+          <h3>${esc(S.marker || t("sum.station"))}: ${R.kin ? esc(t(L.mode === "kalman" ? "sum.kfTrack" : "sum.kinTrack")) + ", " + esc(E.used) + " (" + esc(t("sum.kinAt")) + ")" : esc(t("sum.static"))}</h3>
           <div class="coord">${xyz(L.X, L.sX_mm)}</div>
           <p class="geo">φ ${esc(S.lat)} &nbsp; λ ${esc(S.lon)} &nbsp; h ${num(S.h, 4)} m</p>
           ${kinH}
@@ -584,10 +610,12 @@
           <div><h3>${esc(t("sum.ztd"))}, ${esc(E.used)}</h3><div class="big-num">${num(L.ztd, 4)} m</div>
             <p class="note">Saastamoinen: ${num(L.ztd_model, 4)} m</p></div>
           <div><h3>${esc(t("sum.dop"))}</h3>${dop}</div>
+          ${L.isb_ns !== null && L.isb_ns !== undefined ? `<div><h3>${esc(t("sum.isb"))}</h3><div class="big-num">${num(L.isb_ns, 2)} ns</div>
+            <p class="note">± ${num(L.sisb_ns, 2)} ns · GPS ${L.n_gps_used} / Galileo ${L.n_gal_used} ${esc(t("sum.sats"))}</p></div>` : ""}
         </div>
       </div>
       ${table("solutions", t("sum.compare"), cols, rows)}
-      <p class="note">${esc(t(R.meta.ref_source === "user" ? "sum.compare.lead.user" : "sum.compare.lead.static"))}</p>
+      <p class="note">${esc(t("sum.compare.lead." + (R.meta.ref_source || "static")))}</p>
       ${warns ? `<div class="warns"><h3>${esc(t("sum.warnings"))}</h3><ul>${warns}</ul></div>` : ""}`;
   }
 
@@ -599,6 +627,7 @@
       [t("pre.arp"), S.delta_hen.map((v) => num(v, 4)).join(" / ") + " m"],
       [t("pre.version"), esc(String(S.rinex_version))], [t("pre.types"), esc(S.obs_types.join(" "))],
       [t("pre.codes"), esc(Object.entries(S.used_codes).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(", "))],
+      ...(S.used_codes_E ? [[t("pre.codesE"), esc(Object.entries(S.used_codes_E).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(", "))]] : []),
       [t("pre.interval"), num(S.interval, 0) + " s"], [t("pre.span"), esc(S.first + " – " + S.last.slice(11))],
       [t("pre.counts"), `${S.n_epochs} / ${S.n_sats}`],
     ]);
@@ -606,6 +635,7 @@
       [t("pre.records"), P.n_records], [t("pre.frozen"), P.n_frozen], [t("pre.incomplete"), P.n_incomplete],
       [t("pre.arcs"), P.n_arcs], [t("pre.usableArcs"), P.n_usable_arcs], [t("pre.outliers"), P.n_outlier],
       [t("pre.usable"), P.n_usable], [t("pre.thr"), `GF ${num(P.gf_thr, 2)} m, MW ${num(P.mw_thr, 0)}`],
+      ...(P.n_win_slips ? [[t("pre.winSlips"), P.n_win_slips]] : []),
     ]);
     const jt = P.jumps.length
       ? table("jumps", t("pre.jumps"), [{ k: "t", l: "col.time" }, { k: "median_m", l: "col.median", d: 3 }, { k: "nsat", l: "col.nsat", d: 0 }, { k: "k_ms", l: "col.k", d: 0 }], P.jumps)
@@ -694,17 +724,22 @@
 
   function pL3(R) {
     const L = R.l3, pl = R.plots;
+    const D = R.data;
     const info = kv([
+      [t("l3.mode"), esc(t("set.mode." + (L.mode || "static"))) + (R.meta.params.kf_dyn ? " · " + esc(t("set.kf.dyn." + R.meta.params.kf_dyn)) : "")],
+      [t("l3.clockSrc"), `${esc(t("l3.clockSrc." + (D.sat_clock || "sp3")))}, ${num(D.rate, 0)} s`],
+      [t("l3.sats"), `${L.n_gps_used ?? "–"} / ${L.n_gal_used ?? 0}`],
+      ...(L.isb_ns !== null && L.isb_ns !== undefined ? [[t("l3.isb"), `${num(L.isb_ns, 2)} ± ${num(L.sisb_ns, 2)} ns`]] : []),
       [t("l3.obs"), `${L.n_obs} / ${L.n_par}`], [t("l3.epochs"), `${L.n_epochs}, ${L.n_arcs}, ${L.n_zwd}`],
       [t("l3.s0"), num(L.s0, 3)], [t("l3.rms"), `${num(L.rms_phase_mm, 1)} mm / ${num(L.rms_code_m, 2)} m`],
-      [t("l3.iter"), L.iter_mm.map((x) => num(x, 1)).join(", ") + " mm"],
+      ...(L.iter_mm && L.iter_mm.length ? [[t("l3.iter"), L.iter_mm.map((x) => num(x, 1)).join(", ") + " mm"]] : []),
       [t("l3.kinMinusStatic"), neuStr(L.kin_minus_static_neu_mm)],
     ]);
     const res = bySat(pl.l3.t, pl.l3.v_mm, pl.l3.prn, "markers", 4);
     const clk = [{ type: "scatter", mode: "lines+markers", x: pl.l3.clk_t, y: pl.l3.clk_us, line: { color: css("--l1"), width: 1.5 }, marker: { size: 4 }, name: "clock" }];
     const zwd = [{ type: "scatter", mode: "lines", line: { shape: "hv", color: css("--l2"), width: 2 }, x: [...pl.l3.zwd_t, pl.l3.zwd_t[pl.l3.zwd_t.length - 1] + R.meta.params.zwd_block_h], y: [...pl.l3.zwd_mm, pl.l3.zwd_mm[pl.l3.zwd_mm.length - 1]], name: "ZWD" }];
     const xa = { ...baseLayout().xaxis, title: { text: tLab() } };
-    return `<p class="lead2">${esc(t("l3.lead"))}</p>${info}
+    return `<p class="lead2">${esc(t(L.mode === "kalman" ? "l3.lead.kalman" : "l3.lead"))}</p>${info}
       ${chart("l3res", t("l3.chart.res"), res, baseLayout({ xaxis: xa, shapes: [epochLine(pl.epoch_h)] }))}
       <div class="grid2"><div>${chart("l3clk", t("l3.chart.clk"), clk, baseLayout({ xaxis: xa, showlegend: false, shapes: [epochLine(pl.epoch_h)] }))}</div>
       <div>${chart("l3zwd", t("l3.chart.zwd"), zwd, baseLayout({ xaxis: xa, showlegend: false, shapes: [epochLine(pl.epoch_h)] }))}</div></div>`;
@@ -746,7 +781,7 @@
       { k: "kin", l: "col.kin3d", d: 3 }, { k: "stat", l: "col.stat3d", d: 3 }, { k: "clock", l: "col.clock", d: 1 }, { k: "ztd", l: "col.ztd", d: 4 }];
     const noK = !R.data.klobuchar ? `<p class="note">${esc(t("single.noKlob"))}</p>` : "";
     return `<p class="lead2">${esc(t("single.lead"))}</p>${noK}${table("single", R.epoch.used, cols, rows)}
-      <p class="note">${esc(t(R.meta.ref_source === "user" ? "sum.compare.lead.user" : "sum.compare.lead.static"))}</p>`;
+      <p class="note">${esc(t("sum.compare.lead." + (R.meta.ref_source || "static")))}</p>`;
   }
 
   function pMp(R) {
@@ -766,6 +801,65 @@
       <div>${chart("mpbar", t("mp.chart.persat"), bar, baseLayout({ barmode: "group", yaxis: { ...baseLayout().yaxis, title: { text: "RMS [m]" } } }))}</div></div>`;
   }
 
+
+  function pKin(R) {
+    const K = R.kin, S = K.summary, P = K.plot, pl = R.plots;
+    const info = kv([
+      [t("kin.epochs"), `${S.n_epochs}, ${num(S.rate, 0)} s (${esc(S.first)} – ${esc(S.last)})`],
+      [t("kin.span"), `${num(S.span_N, 2)} / ${num(S.span_E, 2)} / ${num(S.span_U, 2)} m`],
+      [t("kin.path"), num(S.path_m, 1) + " m"],
+      [t("kin.speed"), `${num(S.v_mean_moving, 2)} / ${num(S.v_max, 2)} m/s`],
+      [t("kin.moving"), num((S.moving_frac ?? 0) * 100, 0) + " %"],
+      [t("kin.sig"), (S.sig_med_mm || []).map((x) => num(x, 1)).join(" / ") + " mm"],
+      [t("kin.origin"), R.meta.ref_xyz.map((v) => coord(v, 3)).join("; ") + " m"],
+    ]);
+    const xa = { ...baseLayout().xaxis, title: { text: tLab() } };
+    const track = [{ type: "scatter", mode: "lines+markers", x: P.E, y: P.N, text: P.t.map((h) => { const s = Math.round(h * 3600); return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; }),
+      hovertemplate: "%{text}<br>ΔE %{x:.3f} m<br>ΔN %{y:.3f} m<extra></extra>",
+      line: { width: 1, color: css("--line") }, marker: { size: 5, color: P.t, colorscale: "Viridis", showscale: true, colorbar: { title: { text: lang === "tr" ? "saat" : "h" }, thickness: 12 } }, name: K.kfplot ? t("kin.smooth") : "track" },
+      { type: "scatter", mode: "markers", x: [P.E[S.j_epoch]], y: [P.N[S.j_epoch]], marker: { size: 13, color: css("--accent"), line: { color: css("--ink"), width: 1.5 } }, name: R.epoch.used }];
+    const trLay = baseLayout({ showlegend: !!K.kfplot, xaxis: { ...baseLayout().xaxis, title: { text: "ΔE [m]" } }, yaxis: { ...baseLayout().yaxis, title: { text: "ΔN [m]" }, scaleanchor: "x", scaleratio: 1 } });
+    const neuTr = ["N", "E", "U"].map((k, i) => ({ type: "scatter", mode: "lines", name: "Δ" + k, x: P.t, y: P[k], line: { width: 1.4, color: [css("--l1"), css("--l2"), PALETTE[2]][i] } }));
+    const sigTr = ["sN", "sE", "sU"].map((k, i) => ({ type: "scatter", mode: "lines", name: "σ" + k.slice(1), x: P.t, y: P[k], line: { width: 1.4, color: [css("--l1"), css("--l2"), PALETTE[2]][i] } }));
+    const nTr = [{ type: "scatter", mode: "lines", name: lang === "tr" ? "uydu" : "sats", x: P.t, y: P.n, line: { shape: "hv", width: 1.6, color: css("--l1") } },
+      { type: "scatter", mode: "lines", name: "PDOP", x: P.t, y: P.pdop, yaxis: "y2", line: { width: 1.2, color: css("--l2") } }];
+    const nLay = baseLayout({ xaxis: xa, yaxis: { ...baseLayout().yaxis, title: { text: lang === "tr" ? "uydu" : "satellites" } },
+      yaxis2: { overlaying: "y", side: "right", title: { text: "PDOP" }, showgrid: false, linecolor: css("--line") } });
+    const cols = [{ k: "t", l: "col.time" }, { k: "X", l: "col.X", d: 4 }, { k: "Y", l: "col.Y", d: 4 }, { k: "Z", l: "col.Z", d: 4 },
+      { k: "N", l: "col.N", d: 3, sg: 1 }, { k: "E", l: "col.E", d: 3, sg: 1 }, { k: "U", l: "col.U", d: 3, sg: 1 },
+      { k: "sN", l: "col.sN", d: 1 }, { k: "sE", l: "col.sE", d: 1 }, { k: "sU", l: "col.sU", d: 1 },
+      { k: "n", l: "col.nsat", d: 0 }, { k: "pdop", l: "col.pdop", d: 2 }, { k: "v", l: "col.v", d: 2 }];
+    let kfH = "";
+    const F = S.kf, FP = K.kfplot;
+    if (F && FP) {
+      cols.push({ k: "fN", l: "col.fN", d: 3, sg: 1 }, { k: "fE", l: "col.fE", d: 3, sg: 1 }, { k: "fU", l: "col.fU", d: 3, sg: 1 });
+      track.splice(1, 0, { type: "scatter", mode: "lines", x: FP.fE, y: FP.fN, line: { width: 1, color: css("--l2"), dash: "dot" }, name: t("kin.fwd"), hoverinfo: "skip" });
+      const finfo = kv([
+        [t("kin.kf.model"), `${esc(t("set.kf.dyn." + F.dyn))}, ${num(F.q_h, 3)} / ${num(F.q_v, 3)}`],
+        [t("kin.kf.smoothed"), esc(t(F.smoothed ? "col.yes" : "col.no"))],
+        [t("kin.kf.state"), F.n_state],
+        [t("kin.kf.rej"), `${F.n_reject} / ${F.n_reset}`],
+        [t("kin.kf.conv"), F.conv_min !== null ? num(F.conv_min, 1) + " " + esc(t("kin.kf.min")) : "–"],
+        [t("kin.kf.diff"), (F.fwd_minus_smooth_rms_mm || []).map((x) => num(x, 1)).join(" / ") + " mm"],
+        [t("kin.kf.diffLate"), (F.fwd_minus_smooth_rms_late_mm || []).map((x) => num(x, 1)).join(" / ") + " mm"],
+      ]);
+      const sigTr2 = [{ type: "scatter", mode: "lines", name: t("kin.fwd"), x: P.t, y: FP.fsH, line: { width: 1.6, color: css("--l2") } },
+        { type: "scatter", mode: "lines", name: t("kin.smooth"), x: P.t, y: FP.sH, line: { width: 1.6, color: css("--l1") } }];
+      const dTr = ["N", "E", "U"].map((k, i) => ({ type: "scatter", mode: "lines", name: "Δ" + k, x: P.t, y: FP["d" + k], line: { width: 1.3, color: [css("--l1"), css("--l2"), PALETTE[2]][i] } }));
+      kfH = `<h4>${esc(t("kin.kf.title"))}</h4><p class="lead2">${esc(t("kin.kf.lead"))}</p>${finfo}
+        <div class="grid2"><div>${chart("kfsig", t("kin.chart.kfsig"), sigTr2, baseLayout({ xaxis: xa, yaxis: { ...baseLayout().yaxis, type: "log", title: { text: "mm" } } }))}</div>
+        <div>${chart("kfdiff", t("kin.chart.kfdiff"), dTr, baseLayout({ xaxis: xa, yaxis: { ...baseLayout().yaxis, title: { text: "m" } } }))}</div></div>`;
+    }
+    return `<p class="lead2">${esc(t(F ? "l3.lead.kalman" : "kin.lead"))}</p>${info}
+      ${chart("kintrack", t("kin.chart.track"), track, trLay, false).replace('class="chart"', 'class="chart square"')}
+      ${chart("kinneu", t("kin.chart.neu"), neuTr, baseLayout({ xaxis: xa, shapes: [epochLine(pl.epoch_h)] }))}
+      <div class="grid2"><div>${chart("kinsig", t("kin.chart.sig"), sigTr, baseLayout({ xaxis: xa }))}</div>
+      <div>${chart("kinn", t("kin.chart.nsat"), nTr, nLay)}</div></div>
+      ${kfH}
+      ${table("kin", t("kin.table"), cols, K.rows, { maxRows: 400 })}
+      <p class="note">${esc(t("kin.tableNote"))}</p>`;
+  }
+
   function pSpp(R) {
     const S = R.spp, pl = R.plots;
     const ep = S.epoch;
@@ -777,7 +871,7 @@
     let ch = "";
     if (pl.spp) {
       const tr = ["N", "E", "U"].map((k, i) => ({ type: "scatter", mode: "lines+markers", name: "Δ" + k, x: pl.spp.t, y: pl.spp[k], marker: { size: 3 }, line: { width: 1, color: [css("--l1"), css("--l2"), PALETTE[2]][i] } }));
-      ch = chart("spp", t("spp.chart"), tr, baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, yaxis: { ...baseLayout().yaxis, range: [-10, 10], title: { text: "m" } }, shapes: [epochLine(pl.epoch_h)] }), true);
+      ch = chart("spp", t("spp.chart"), tr, baseLayout({ xaxis: { ...baseLayout().xaxis, title: { text: tLab() } }, yaxis: { ...baseLayout().yaxis, ...(R.kin ? {} : { range: [-10, 10] }), title: { text: "m" } }, shapes: [epochLine(pl.epoch_h)] }), true);
     }
     return `<p class="lead2">${esc(t("spp.lead"))}</p>${info}${ch}`;
   }

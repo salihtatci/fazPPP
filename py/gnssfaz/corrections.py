@@ -99,21 +99,26 @@ def receiver_antenna(u, el, rec, arp_hen, Rneu, coef):
 
 
 def satellite_antenna(u, prns, ex, ey, ez, sats, coef):
-    """Uydu PCO (govde ekseni) + PCV(nadir) uzaklik duzeltmesi [m]; nadir acisi [derece]."""
+    """Uydu PCO (govde ekseni) + PCV(nadir) uzaklik duzeltmesi [m]; nadir acisi [derece].
+
+    coef: {'G01': a, 'G02': b} ya da sisteme gore {'G': {...}, 'E': {...}} (Galileo prn >= 100).
+    """
     n = len(u)
     d = np.zeros(n)
     nadir = np.degrees(np.arccos(np.clip(-np.einsum("ij,ij->i", u, ez), -1, 1)))
     missing = set()
+    by_sys = "G" in coef
     for i in range(n):
         s = sats.get(int(prns[i]))
-        if s is None:
+        cf = (coef["E"] if int(prns[i]) >= 100 else coef["G"]) if by_sys else coef
+        if s is None or not all(f in s for f in cf):
             missing.add(int(prns[i]))
             continue
-        p = sum(coef[f] * s[f]["pco"] for f in coef) / 1000.0
+        p = sum(cf[f] * s[f]["pco"] for f in cf) / 1000.0
         kay = p[0] * ex[i] + p[1] * ey[i] + p[2] * ez[i]
         pv = 0.0
-        if all("pcv" in s[f] for f in coef):
-            pv = sum(coef[f] * pcv_interp(s[f]["pcv"], s["zen"][0], s["zen"][1], nadir[i]) for f in coef) / 1000.0
+        if all("pcv" in s[f] for f in cf):
+            pv = sum(cf[f] * pcv_interp(s[f]["pcv"], s["zen"][0], s["zen"][1], nadir[i]) for f in cf) / 1000.0
         d[i] = u[i] @ kay + pv
     return d, nadir, missing
 

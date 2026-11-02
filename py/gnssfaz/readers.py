@@ -1,13 +1,15 @@
-"""RINEX (gozlem, navigasyon, meteoroloji), SP3, ANTEX ve DCB okuyuculari.
+"""RINEX (gozlem, navigasyon, meteoroloji), SP3, saat (CLK), ANTEX ve DCB okuyuculari.
 
-Yalnizca GPS kayitlari okunur. RINEX 2.xx ve 3.xx desteklenir; Hatanaka
-sikistirmali (.d / .crx) dosyalar desteklenmez.
+GPS ve Galileo kayitlari okunur (Galileo uydulari icte 100 + PRN olarak
+numaralanir). RINEX 2.xx ve 3.xx desteklenir; Hatanaka sikistirmali
+(.d / .crx) dosyalar desteklenmez.
 """
 import math
 from datetime import datetime
 
 import numpy as np
 
+from .const import F2, F5, F7, GAL, sv_num
 from .timeutil import to_gps
 
 
@@ -39,12 +41,26 @@ _V3_PREF = {
     "L1": ["L1C", "L1W", "L1P", "L1X"],
     "L2": ["L2W", "L2P", "L2Y", "L2D", "L2X", "L2L", "L2S"],
 }
+# Galileo: E1 + E5a (yoksa E5b)
+_V3_PREF_E = {
+    "5": {"P1": ["C1C", "C1X", "C1B", "C1Z", "C1A"], "C1": ["C1C", "C1X", "C1B"],
+          "P2": ["C5Q", "C5X", "C5I"], "L1": ["L1C", "L1X", "L1B", "L1Z", "L1A"], "L2": ["L5Q", "L5X", "L5I"]},
+    "7": {"P1": ["C1C", "C1X", "C1B", "C1Z", "C1A"], "C1": ["C1C", "C1X", "C1B"],
+          "P2": ["C7Q", "C7X", "C7I"], "L1": ["L1C", "L1X", "L1B", "L1Z", "L1A"], "L2": ["L7Q", "L7X", "L7I"]},
+}
+_KEYS = ("P1", "C1", "P2", "L1", "L2")
 
 
-def read_obs(text):
+def _pick(types, pref):
+    return {k: next((types.index(c) for c in v if c in types), None) for k, v in pref.items()}
+
+
+def read_obs(text, systems="GE"):
     """RINEX gozlem dosyasini okur.
 
-    Doner: dict(header=..., t, prn, P1, P2, L1, L2, C1) - her kayit bir (epok, uydu).
+    systems: okunacak sistemler ("G", "GE").
+    Doner: dict(header=..., t, prn, P1, P2, L1, L2, C1) - her kayit bir (epok, uydu);
+    Galileo uydulari prn = 100 + PRN.
     """
     L = _lines(text)
     if L and ("COMPACT RINEX" in L[0].upper() or "CRINEX" in L[0].upper()):
@@ -93,14 +109,31 @@ def read_obs(text):
     else:
         raise FormatHatasi("obs_no_header_end|Gozlem dosyasinda 'END OF HEADER' bulunamadi.")
 
+    systems = systems or "GE"
+    hdr["systems_skipped"] = []
+    idx_e = None
+    f2_e = None
     if ver >= 3:
         types = types3.get("G", [])
         if not types:
             raise FormatHatasi("obs_no_gps_types|RINEX 3 dosyasinda GPS gozlem tipi yok.")
         hdr["obs_types"] = types
-        idx = {k: next((types.index(c) for c in v if c in types), None) for k, v in _V3_PREF.items()}
+        idx = _pick(types, _V3_PREF)
         hdr["used_codes"] = {k: (types[j] if j is not None else None) for k, j in idx.items()}
-        recs = _read_body3(L, i, types, idx)
+        tE = types3.get("E", [])
+        if "E" in systems and tE:
+            for band, f2b in (("5", F5), ("7", F7)):
+                cand = _pick(tE, _V3_PREF_E[band])
+                if all(cand[k] is not None for k in ("P1", "P2", "L1", "L2")):
+                    idx_e, f2_e = cand, f2b
+                    break
+            if idx_e is not None:
+                hdr["obs_types_E"] = tE
+                hdr["used_codes_E"] = {k: (tE[j] if j is not None else None) for k, j in idx_e.items()}
+            else:
+                hdr["systems_skipped"].append("E:nodual")
+        hdr["systems_skipped"] += sorted(k for k in types3 if k not in ("G", "E") or (k == "E" and "E" not in systems))
+        recs = _read_body3(L, i, {"G": idx, "E": idx_e})
     else:
         types = types2
         hdr["obs_types"] = types
@@ -109,7 +142,14 @@ def read_obs(text):
         idx = {"P1": pick("P1", "C1"), "C1": pick("C1"), "P2": pick("P2", "C2"),
                "L1": pick("L1"), "L2": pick("L2")}
         hdr["used_codes"] = {k: (types[j] if j is not None else None) for k, j in idx.items()}
-        recs = _read_body2(L, i, types, idx)
+        if "E" in systems:
+            for band, f2b in (("5", F5), ("7", F7)):
+                cand = {"P1": pick("C1"), "C1": pick("C1"), "P2": pick("C" + band), "L1": pick("L1"), "L2": pick("L" + band)}
+                if all(cand[k] is not None for k in ("P1", "P2", "L1", "L2")):
+                    idx_e, f2_e = cand, f2b
+                    hdr["used_codes_E"] = {k: (types[j] if j is not None else None) for k, j in cand.items()}
+                    break
+        recs = _read_body2(L, i, types, {"G": idx, "E": idx_e})
 
     if idx["L1"] is None or idx["P1"] is None:
         raise FormatHatasi("obs_no_l1|Dosyada L1 fazi veya L1 kodu yok; faz cozumu yapilamaz.")
@@ -118,6 +158,9 @@ def read_obs(text):
     arr = np.array(recs, dtype=float)
     out = {"header": hdr, "t": arr[:, 0], "prn": arr[:, 1].astype(int),
            "P1": arr[:, 2], "C1": arr[:, 3], "P2": arr[:, 4], "L1": arr[:, 5], "L2": arr[:, 6]}
+    if not (out["prn"] < GAL).any():
+        raise FormatHatasi("obs_no_gps|Dosyada GPS gozlemi bulunamadi.")
+    hdr["f2"] = {"G": F2, "E": f2_e}
     for k in ("P1", "C1", "P2", "L1", "L2"):
         v = out[k]
         v[v == 0.0] = np.nan
@@ -133,11 +176,10 @@ def _val(line, j):
     return _f(line[a:a + 14]) if len(line) > a else math.nan
 
 
-def _read_body2(L, i, types, idx):
+def _read_body2(L, i, types, idxs):
     nt = len(types)
     nl = (nt + 4) // 5
     recs = []
-    keys = ("P1", "C1", "P2", "L1", "L2")
     n = len(L)
     while i < n:
         s = L[i]
@@ -175,23 +217,24 @@ def _read_body2(L, i, types, idx):
             for _ in range(nl):
                 block.append((L[i] if i < n else "").ljust(80))
                 i += 1
-            if sv[0] not in ("G", " "):
+            sysc = sv[0] if sv[0] != " " else "G"
+            idx = idxs.get(sysc)
+            if idx is None:
                 continue
             try:
-                prn = int(sv[1:3])
+                prn = sv_num(sysc, int(sv[1:3]))
             except ValueError:
                 continue
             vals = {}
-            for k in keys:
+            for k in _KEYS:
                 jj = idx[k]
                 vals[k] = math.nan if jj is None else _val(block[jj // 5], jj % 5)
             recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"]))
     return recs
 
 
-def _read_body3(L, i, types, idx):
+def _read_body3(L, i, idxs):
     recs = []
-    keys = ("P1", "C1", "P2", "L1", "L2")
     n = len(L)
     t = None
     while i < n:
@@ -212,15 +255,16 @@ def _read_body3(L, i, types, idx):
             t = to_gps(y, mo, d, h, mi, sec)
             i += 1
             continue
-        if t is not None and s[:1] == "G" and len(s) > 3:
+        idx = idxs.get(s[:1]) if t is not None and len(s) > 3 else None
+        if idx is not None:
             try:
-                prn = int(s[1:3])
+                prn = sv_num(s[0], int(s[1:3]))
             except ValueError:
                 i += 1
                 continue
             body = s[3:]
             vals = {}
-            for k in keys:
+            for k in _KEYS:
                 jj = idx[k]
                 vals[k] = math.nan if jj is None else _val(body, jj)
             recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"]))
@@ -402,12 +446,11 @@ def read_sp3(texts):
                 tok = s[1:].split()
                 t = to_gps(int(tok[0]), int(tok[1]), int(tok[2]), int(tok[3]), int(tok[4]), float(tok[5]))
             elif s.startswith("P") and t is not None:
-                sysc = s[1]
-                if sysc not in ("G", " "):
-                    continue
                 try:
-                    prn = int(s[2:4])
+                    prn = sv_num(s[1], int(s[2:4]))
                 except ValueError:
+                    continue
+                if prn is None:
                     continue
                 x, y, z = _f(s[4:18]), _f(s[18:32]), _f(s[32:46])
                 clk = _f(s[46:60])
@@ -415,7 +458,7 @@ def read_sp3(texts):
                     continue
                 c = clk * 1e-6 if (not math.isnan(clk) and abs(clk) < 999999) else math.nan
                 data.setdefault(t, {})[prn] = (x * 1e3, y * 1e3, z * 1e3, c)
-    if not data:
+    if not data or not any(p < GAL for d in data.values() for p in d):
         raise FormatHatasi("sp3_no_gps|SP3 dosyasinda GPS konumu bulunamadi.")
     ts = np.array(sorted(data))
     prns = sorted({p for d in data.values() for p in d})
@@ -431,6 +474,64 @@ def read_sp3(texts):
 
 
 # ---------------------------------------------------------------------------
+# RINEX saat (CLK) dosyasi: uydu saatleri (AS kayitlari)
+# ---------------------------------------------------------------------------
+def read_clk(texts, t_min=None, t_max=None):
+    """Bir veya birden cok RINEX saat dosyasindan GPS/Galileo uydu saatlerini okur.
+
+    t_min/t_max verilirse yalniz bu aralik (+-1 saat) tutulur.
+    Doner: dict(t=(n,), prns=[...], clk=(n, nsat) [s], interval, ac)
+    """
+    if isinstance(texts, str):
+        texts = [texts]
+    data = {}
+    ac = None
+    for text in texts:
+        L = _lines(text)
+        # RINEX CLK 3.04'te etiketler 65. sutundan, tip 22. sutunda baslar
+        if not L or "RINEX VERSION" not in L[0] or "C" not in L[0][20:22].upper():
+            raise FormatHatasi("clk_bad|Saat dosyasi RINEX CLK degil (ilk satirda 'C' tipi yok).")
+        i = 0
+        while i < len(L) and L[i][60:].strip() != "END OF HEADER":
+            if L[i][60:].strip().startswith("ANALYSIS CENTER") and ac is None:
+                ac = L[i][:3].strip() or None
+            i += 1
+        lo = (t_min - 3600.0) if t_min is not None else -1e99
+        hi = (t_max + 3600.0) if t_max is not None else 1e99
+        for s in L[i + 1:]:
+            if not s.startswith("AS "):
+                continue
+            tok = s.split()
+            if len(tok) < 10:
+                continue
+            sv = tok[1]
+            try:
+                prn = sv_num(sv[0], int(sv[1:3]))
+            except (ValueError, IndexError):
+                continue
+            if prn is None:
+                continue
+            try:
+                t = to_gps(int(tok[2]), int(tok[3]), int(tok[4]), int(tok[5]), int(tok[6]), float(tok[7]))
+                v = float(tok[9].replace("D", "E"))
+            except ValueError:
+                continue
+            if lo <= t <= hi:
+                data.setdefault(t, {})[prn] = v
+    if not data:
+        raise FormatHatasi("clk_no_data|Saat dosyasinda gozlem araligina dusen GPS/Galileo uydu saati yok.")
+    ts = np.array(sorted(data))
+    prns = sorted({p for d in data.values() for p in d})
+    clk = np.full((len(ts), len(prns)), np.nan)
+    pi = {p: k for k, p in enumerate(prns)}
+    for a, t in enumerate(ts):
+        for p, v in data[t].items():
+            clk[a, pi[p]] = v
+    return {"t": ts, "prns": prns, "clk": clk, "ac": ac,
+            "interval": float(np.median(np.diff(ts))) if len(ts) > 1 else 30.0}
+
+
+# ---------------------------------------------------------------------------
 # ANTEX
 # ---------------------------------------------------------------------------
 def _atx_date(s):
@@ -443,8 +544,8 @@ def _atx_date(s):
 def read_antex(text, when, rec_type=None):
     """ANTEX'ten verilen tarihte gecerli uydu antenlerini ve (verilmisse) alici antenini okur.
 
-    Doner: {'sat': {prn: ant}, 'rec': ant|None, 'rec_name': str}
-    ant = {'block': str, 'zen': (z0, dz), 'G01': {'pco': (3,) mm, 'pcv': (n,) mm}, 'G02': {...}}
+    Doner: {'sat': {prn: ant}, 'rec': ant|None, 'rec_name': str}  (Galileo: prn = 100 + PRN)
+    ant = {'block': str, 'zen': (z0, dz), 'G01': {'pco': (3,) mm, 'pcv': (n,) mm}, 'G02': {...}, 'E01': ...}
     """
     sats, recs = {}, {}
     ant = None
@@ -475,16 +576,23 @@ def read_antex(text, when, rec_type=None):
             fr = None
         elif lab == "END OF ANTENNA":
             ok = (ant["from"] is None or ant["from"] <= when) and (ant["until"] is None or when <= ant["until"])
-            if ok and "G01" in ant["freq"] and "zen" in ant:
-                rec = {"block": ant["type"].strip(), "zen": ant["zen"], **ant["freq"]}
-                if "G02" not in rec:
+            fq = ant["freq"]
+            has_g = "G01" in fq
+            has_e = "E01" in fq
+            if ok and (has_g or has_e) and "zen" in ant:
+                rec = {"block": ant["type"].strip(), "zen": ant["zen"], **fq}
+                if has_g and "G02" not in rec:
                     rec["G02"] = rec["G01"]
                 serial = ant["serial"]
-                if ant["type"].startswith("BLOCK") or ant["type"].startswith("GPS-"):
-                    if serial[:1] == "G" and serial[1:3].isdigit():
+                typ = ant["type"]
+                if typ.startswith("BLOCK") or typ.startswith("GPS-"):
+                    if serial[:1] == "G" and serial[1:3].isdigit() and has_g:
                         sats[int(serial[1:3])] = rec
-                else:
-                    recs[ant["type"].rstrip()] = rec
+                elif typ.startswith("GALILEO"):
+                    if serial[:1] == "E" and serial[1:3].isdigit() and has_e:
+                        sats[GAL + int(serial[1:3])] = rec
+                elif has_g and not typ.startswith(("GLONASS", "BEIDOU", "QZSS", "IRNSS")):
+                    recs[typ.rstrip()] = rec
             ant = None
     out = {"sat": sats, "rec": None, "rec_name": None}
     if rec_type:
