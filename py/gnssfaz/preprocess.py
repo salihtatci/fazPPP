@@ -27,6 +27,7 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0, max_gap=None):
     order = np.lexsort((t, prn))                       # uydu, sonra zaman
     t, prn, P1, P2, L1, L2 = (a[order] for a in (t, prn, P1, P2, L1, L2))
     C1 = obs["C1"][order]
+    lli = obs.get("lli", np.zeros(n0, bool))[order]
     same = np.r_[False, prn[1:] == prn[:-1]]
 
     # 1) donmus L2: bir onceki kayitla birebir ayni deger
@@ -37,7 +38,11 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0, max_gap=None):
 
     full = ~(np.isnan(P1) | np.isnan(P2) | np.isnan(L1) | np.isnan(L2))
     n_missing = int((~full).sum())
-    t, prn, P1, P2, L1, L2, C1 = (a[full] for a in (t, prn, P1, P2, L1, L2, C1))
+    t, prn, P1, P2, L1, L2, C1, lli = (a[full] for a in (t, prn, P1, P2, L1, L2, C1, lli))
+    # LLI: alici faz kopmasi bayragi. Bazi alicilar her epokta isaretler; o zaman guvenilmez sayilir.
+    lli_frac = float(lli.mean()) if len(lli) else 0.0
+    use_lli = lli_frac < 0.05
+    n_lli = int(lli.sum()) if use_lli else 0
     same = np.r_[False, prn[1:] == prn[:-1]]
     dt = np.r_[np.nan, np.diff(t)]
     f1, f2 = freqs(prn, f2_gal)
@@ -89,7 +94,7 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0, max_gap=None):
     t_last = -1e99
     for i in range(n):
         new = False
-        if prev is None or prn[i] != prev[2] or t[i] - t_last > gap:
+        if prev is None or prn[i] != prev[2] or t[i] - t_last > gap or (use_lli and lli[i]):
             new = True
         else:
             ok = abs(GF[i] - prev[1]) <= gf_thr and abs(MW[i] - mw_sum / mw_n) <= mw_thr
@@ -192,4 +197,5 @@ def preprocess(obs, gf_thr=None, mw_thr=4.0, min_arc_sec=600.0, max_gap=None):
             "stats": {"n_records": n0, "n_frozen": n_frozen, "n_incomplete": n_missing,
                       "n_complete": n, "n_arcs": len(arcs), "n_usable_arcs": int(usable_arc.sum()),
                       "n_outlier": int(outlier.sum()), "n_usable": int(usable.sum()), "n_win_slips": n_win,
+                      "n_lli": n_lli, "lli_ignored": bool(not use_lli and lli_frac > 0),
                       "gf_thr": gf_thr, "mw_thr": mw_thr, "min_arc_epochs": min_n}}

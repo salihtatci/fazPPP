@@ -115,8 +115,21 @@ def phase_solution(d, phase, code, corr_phase, corr_code, X0, kin_epoch, Rneu,
 
         # global tasarim (seyrek)
         gr, gc, gv = _sparse_global(n, ie, iy, iz, mw, u, isE, static_rows, gX, gz, gi, gb)
-        Neg = np.zeros((ne, ng, 4))
-        np.add.at(Neg, (erow[gr], gc), pa[gr] * gv[:, None])
+        # her epokta etkin global sutunlar (o epokta gorunen yaylar, ZWD, ISB, statik konum): (ne, K)
+        if it == 0:
+            key = erow[gr].astype(np.int64) * (ng + 1) + gc
+            ukey = np.unique(key)
+            ue = ukey // (ng + 1)
+            starts_e = np.searchsorted(ue, np.arange(ne))
+            cnt_e = np.bincount(ue, minlength=ne)
+            K = int(cnt_e.max())
+            Cidx = np.full((ne, K), ng, dtype=np.int64)        # ng: bos (sifir) sutun
+            posk = np.arange(len(ukey)) - starts_e[ue]
+            Cidx[ue, posk] = ukey % (ng + 1)
+            kk = posk[np.searchsorted(ukey, key)]            # her ogenin epok icindeki sirasi
+            ek = erow[gr]
+        NegS = np.zeros((ne, K, 4))
+        np.add.at(NegS, (ek, kk), pa[gr] * gv[:, None])
         bg = np.zeros(ng)
         np.add.at(bg, gc, p[gr] * gv * l[gr])
         # Ngg: ayni satirdaki oge ciftleri
@@ -136,15 +149,21 @@ def phase_solution(d, phase, code, corr_phase, corr_code, X0, kin_epoch, Rneu,
                 np.add.at(Ngg, (gc_s[i1b], gc_s[i2]), p[gr_s[i1b]] * gv_s[i1b] * gv_s[i2])
 
         Ninv = np.linalg.inv(Nee)
-        NegT = np.transpose(Neg, (0, 2, 1))                      # (ne, 4, ng)
-        H = np.einsum("eab,ebj->eaj", Ninv, NegT, optimize=True)
-        Nred = Ngg - np.einsum("eai,eaj->ij", NegT, H, optimize=True)
-        bred = bg - np.einsum("eai,ea->i", H, be, optimize=True)
+        NegT = np.ascontiguousarray(np.transpose(NegS, (0, 2, 1)))  # (ne, 4, K)
+        H = np.matmul(Ninv, NegT)                                   # (ne, 4, K)
+        Mred = np.matmul(np.transpose(NegT, (0, 2, 1)), H)          # (ne, K, K)
+        Nx = np.zeros((ng + 1, ng + 1))
+        np.add.at(Nx, (np.broadcast_to(Cidx[:, :, None], Mred.shape), np.broadcast_to(Cidx[:, None, :], Mred.shape)), Mred)
+        Nred = Ngg - Nx[:ng, :ng]
+        bx = np.zeros(ng + 1)
+        np.add.at(bx, Cidx, np.matmul(np.transpose(H, (0, 2, 1)), be[:, :, None])[:, :, 0])
+        bred = bg - bx[:ng]
         try:
             dg = np.linalg.solve(Nred, bred)
         except np.linalg.LinAlgError:
             dg = np.linalg.lstsq(Nred, bred, rcond=None)[0]
-        de = np.einsum("eab,eb->ea", Ninv, be - np.einsum("eaj,j->ea", NegT, dg, optimize=True))
+        dgx = np.r_[dg, 0.0]
+        de = np.matmul(Ninv, (be - np.matmul(NegT, dgx[Cidx][:, :, None])[:, :, 0])[:, :, None])[:, :, 0]
         de[~haspos, :3] = 0.0
 
         if gX is not None:
@@ -174,8 +193,11 @@ def phase_solution(d, phase, code, corr_phase, corr_code, X0, kin_epoch, Rneu,
         Qgg = np.linalg.inv(Nred)
     except np.linalg.LinAlgError:
         Qgg = np.linalg.pinv(Nred)
-    HQ = np.einsum("eai,ij->eaj", H, Qgg, optimize=True)
-    Qee = Ninv + np.einsum("eaj,ebj->eab", HQ, H, optimize=True)
+    Qx = np.zeros((ng + 1, ng + 1))
+    Qx[:ng, :ng] = Qgg
+    Qsub = Qx[Cidx[:, :, None], Cidx[:, None, :]]                  # (ne, K, K)
+    HQ = np.matmul(H, Qsub)
+    Qee = Ninv + np.matmul(HQ, np.transpose(H, (0, 2, 1)))
     sg = s0 * np.sqrt(np.abs(np.diag(Qgg)))
     se = s0 * np.sqrt(np.abs(np.einsum("eaa->ea", Qee)))
 
@@ -192,7 +214,7 @@ def phase_solution(d, phase, code, corr_phase, corr_code, X0, kin_epoch, Rneu,
         out["Xk"] = None
         out["sXk"] = None
         Qp = s0 ** 2 * Qee[:, :3, :3]
-        Qn = np.einsum("ab,ebc,dc->ead", Rneu, Qp, Rneu)
+        Qn = np.matmul(np.matmul(Rneu, Qp), Rneu.T)
         nsat = np.bincount(ie, minlength=ne)
         pdop = np.full(ne, np.nan)
         cnt = np.bincount(ie, weights=None, minlength=ne)

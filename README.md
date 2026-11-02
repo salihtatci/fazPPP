@@ -5,7 +5,7 @@
 
 Gözlem, SP3, saat (CLK), navigasyon ve meteoroloji dosyalarını yüklediğinizde FazPPP şunları hesaplar:
 
-- RINEX okuma ve ön işleme (GPS L1/L2, Galileo E1/E5a): donmuş kayıtlar, alıcı saati 1 ms sıçramaları, GF ve Melbourne–Wübbena ile faz kopmaları (yüksek hızlı veride ek pencere testi), yaylar
+- RINEX okuma (Hatanaka `.crx`/`.d` ve `.gz`/`.Z` doğrudan) ve ön işleme (GPS L1/L2, Galileo E1/E5a): donmuş kayıtlar, alıcı saati 1 ms sıçramaları, alıcının LLI bayrakları, GF ve Melbourne–Wübbena ile faz kopmaları (yüksek hızlı veride ek pencere testi), yaylar
 - **Kod ölçülerine Kalman filtresi:** her uydu ve yay için P1/P2'nin faz ile süzülmesi (iyonosfer ayrışmasız), yenilik testi
 - Uydu konumu ve saati: SP3 Lagrange ara değerlemesi, RINEX saat (CLK) dosyasından ya da SP3'ten uydu saati, gönderim anı, rölativistik düzeltme, Dünya dönüşü, yükseklik ve azimut
 - Troposfer: Saastamoinen + Herring eşleme fonksiyonları
@@ -23,7 +23,7 @@ Hesaplar Python (yalnızca numpy) ile yazılmıştır ve [Pyodide](https://pyodi
 ## Kullanım
 
 1. Siteyi açın, dosyaları ilgili kutulara sürükleyin.
-2. Çözüm türünü (statik / kinematik) seçin, hesap epoğunu (GPS zamanı) ve isterseniz referans koordinatı girin.
+2. Çözüm türünü seçin (varsayılan **Otomatik**: alıcı hareket ediyorsa kinematik, etmiyorsa statik), isterseniz hesap epoğunu (GPS zamanı) ve referans koordinatı girin.
 3. **Hesapla**'ya basın. İlk açılışta Python ortamı 10-20 saniyede indirilir, sonraki hesaplar birkaç saniye sürer.
 
 Denemek için **Örnek veriyle dene** düğmesi ISTA istasyonunun 28.08.2014 verisini yükler (`examples/ista_2014_240/`).
@@ -38,7 +38,35 @@ Denemek için **Örnek veriyle dene** düğmesi ISTA istasyonunun 28.08.2014 ver
 | ANTEX (.atx) | hayır | Yoksa tarihe göre gömülü `igs20.atx` (27.11.2022 sonrası; GPS + Galileo, küçültülmüş) ya da `igs08.atx` |
 | DCB | hayır | CODE P1-P2; yoksa uydu DCB'leri veriden kestirilir |
 
-`.gz` dosyalar kabul edilir. Hatanaka (`.d`, `.crx`) ve `.Z` dosyalarını önce açın.
+`.gz` ve `.Z` sıkıştırılmış ve Hatanaka (`.crx`, `.d`) dosyalar doğrudan yüklenebilir.
+
+## Sağlamlık ve doğruluk
+
+Her türlü gözlem dosyasında düşük hatayla çalışması için:
+
+- **Otomatik çözüm türü:** Kod çözümünde alıcı 10 m'den fazla yer değiştiriyorsa kinematik seçilir; değiştirmiyorsa statik çözülür, statik çözüm ölçülere uymuyorsa (s₀ > 2,5) kinematik denenir ve belirgin biçimde daha iyiyse seçilir.
+- **Artığa dayalı ayıklama:** Çözümden sonra faz artıklarında ~2 dk'lık pencerelerle basamak aranır; ön işlemenin kaçırdığı faz kopmalarında (ör. GF'yi 3 mm, MW'yi 2 devir değiştiren 9/7 devirlik kopma) yay bölünür, tek tek büyük faz ve kod artıkları çıkarılır, çözüm yinelenir (en çok 5 tur; her turda yalnız en belirgin basamaklar).
+- **Alıcının LLI bayrakları** faz kopması olarak kullanılır (neredeyse her epokta işaretleyen alıcılarda yok sayılır).
+- **Kaydırılmış ya da ondalıklı epoklar:** Gözlem epokları işlem aralığına oturmuyorsa her işlem anına en yakın epok seçilir.
+- **Kısa dosyalar:** En kısa yay, dosya süresinin %30'una (2–10 dk) indirilir.
+- **Ürün denetimi:** CLK ve SP3 uydu saatleri karşılaştırılır (farklı analiz merkezi uyarısı), gözlemlerin SP3/CLK kapsamı dışında kalan kısmı bildirilir; başlıktaki yaklaşık konum kod çözümünden 1 km'den fazla farklıysa kod çözümü kullanılır.
+
+Test sonuçları (3 Kasım 2023, CODE MGEX final yörünge + 30 s saat, GPS + Galileo; doğruluk ölçütü IGS günlük koordinatları, `IGS0OPSSNX_20233070000_01D_01D_CRD`):
+
+| Veri | Çözüm | Hata N / E / U [mm] |
+|---|---|---|
+| ISTA, 24 sa, 30 s, RINEX 3 | statik | 4 / −2 / −6 |
+| BUCU, 24 sa, 30 s | statik | 3 / 0 / −8 |
+| MATE, 24 sa, 30 s | statik | 3 / −4 / −15 |
+| ISTA, CLK olmadan (5 dk SP3 saati) | statik | 4 / −2 / −4 |
+| ISTA, 1,5 sa, 1 s | statik | 0 / −4 / 11 |
+| ISTA, epoklar :15/:45 | statik | 0 / 3 / 16 |
+| ISTA, yapay 3 faz kopması + kod aykırıları | statik | 4 / −2 / −6 (ayıklamasız 5 / −45 / 62) |
+| ISTA, 24 sa, 30 s | kinematik, epok RMS | 7 / 5 / 23 |
+| ISTA, 1,5 sa, 1 s | kinematik, epok RMS | 5 / 12 / 19 |
+| ISTA 2014, RINEX 2, yalnız GPS | statik (ITRF2014'e göre) | −8 / 4 / 9 |
+
+Kısa oturumlarda ondalıklı belirsizlikler tam yakınsamaz: 20 dk statik ~8 cm, 8 dk ~20 cm. Hareketli alıcı ge.23O (1 s, 68 dk) otomatik modda kinematik çözülür (faz RMS 8 mm).
 
 ## Kod ölçülerine Kalman filtresi
 
@@ -99,7 +127,7 @@ Yerelde denemek için klasörde `python -m http.server` çalıştırıp `http://
 index.html            arayüz
 worker.js             Pyodide'i yükleyip hesabı ayrı iş parçacığında çalıştırır
 assets/               stil, arayüz kodu, metinler (TR/EN)
-py/gnssfaz/           hesap paketi (readers, preprocess, codefilter, orbit, corrections, estimate, pipeline ...)
+py/gnssfaz/           hesap paketi (readers, crinex, preprocess, codefilter, orbit, corrections, estimate, pipeline ...)
 py/web_entry.py       tarayıcı giriş noktası
 py/cli.py             komut satırı
 data/igs08.atx.gz     gömülü anten kalibrasyonu (2022 öncesi)

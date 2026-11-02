@@ -2,7 +2,7 @@
 
 GPS ve Galileo kayitlari okunur (Galileo uydulari icte 100 + PRN olarak
 numaralanir). RINEX 2.xx ve 3.xx desteklenir; Hatanaka sikistirmali
-(.d / .crx) dosyalar desteklenmez.
+(.d / .crx) dosyalar once crinex.crx2rnx ile acilir.
 """
 import math
 from datetime import datetime
@@ -10,6 +10,7 @@ from datetime import datetime
 import numpy as np
 
 from .const import F2, F5, F7, GAL, sv_num
+from .crinex import crx2rnx
 from .timeutil import to_gps
 
 
@@ -62,9 +63,13 @@ def read_obs(text, systems="GE"):
     Doner: dict(header=..., t, prn, P1, P2, L1, L2, C1) - her kayit bir (epok, uydu);
     Galileo uydulari prn = 100 + PRN.
     """
+    head = text[:200].upper()
+    if "COMPACT RINEX" in head or "CRINEX" in head:
+        try:
+            text = crx2rnx(text)
+        except Exception as e:  # noqa: BLE001
+            raise FormatHatasi("obs_hatanaka|Hatanaka sikistirmali dosya acilamadi: " + str(e)[:80])
     L = _lines(text)
-    if L and ("COMPACT RINEX" in L[0].upper() or "CRINEX" in L[0].upper()):
-        raise FormatHatasi("obs_hatanaka|Hatanaka sikistirmali dosya: once CRX2RNX ile acin.")
     if not L or "RINEX VERSION" not in L[0]:
         raise FormatHatasi("obs_not_rinex|Gozlem dosyasi RINEX degil (ilk satirda 'RINEX VERSION / TYPE' yok).")
     ver = _f(L[0][:9])
@@ -157,7 +162,8 @@ def read_obs(text, systems="GE"):
         raise FormatHatasi("obs_no_gps|Dosyada GPS gozlemi bulunamadi.")
     arr = np.array(recs, dtype=float)
     out = {"header": hdr, "t": arr[:, 0], "prn": arr[:, 1].astype(int),
-           "P1": arr[:, 2], "C1": arr[:, 3], "P2": arr[:, 4], "L1": arr[:, 5], "L2": arr[:, 6]}
+           "P1": arr[:, 2], "C1": arr[:, 3], "P2": arr[:, 4], "L1": arr[:, 5], "L2": arr[:, 6],
+           "lli": arr[:, 7].astype(bool)}
     if not (out["prn"] < GAL).any():
         raise FormatHatasi("obs_no_gps|Dosyada GPS gozlemi bulunamadi.")
     hdr["f2"] = {"G": F2, "E": f2_e}
@@ -174,6 +180,14 @@ def read_obs(text, systems="GE"):
 def _val(line, j):
     a = 16 * j
     return _f(line[a:a + 14]) if len(line) > a else math.nan
+
+
+def _lli(line, j):
+    """Faz kopmasi bayragi (LLI) bit 0."""
+    a = 16 * j + 14
+    if len(line) > a and line[a].isdigit():
+        return int(line[a]) & 1
+    return 0
 
 
 def _read_body2(L, i, types, idxs):
@@ -229,7 +243,12 @@ def _read_body2(L, i, types, idxs):
             for k in _KEYS:
                 jj = idx[k]
                 vals[k] = math.nan if jj is None else _val(block[jj // 5], jj % 5)
-            recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"]))
+            lli = 0
+            for k in ("L1", "L2"):
+                jj = idx[k]
+                if jj is not None:
+                    lli |= _lli(block[jj // 5], jj % 5)
+            recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"], lli))
     return recs
 
 
@@ -267,7 +286,12 @@ def _read_body3(L, i, idxs):
             for k in _KEYS:
                 jj = idx[k]
                 vals[k] = math.nan if jj is None else _val(body, jj)
-            recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"]))
+            lli = 0
+            for k in ("L1", "L2"):
+                jj = idx[k]
+                if jj is not None:
+                    lli |= _lli(body, jj)
+            recs.append((t, prn, vals["P1"], vals["C1"], vals["P2"], vals["L1"], vals["L2"], lli))
         i += 1
     return recs
 

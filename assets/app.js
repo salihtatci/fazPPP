@@ -87,10 +87,74 @@
     }));
   }
 
+  /* Unix compress (.Z, LZW) cozucu - Mark Adler'in pigz unlzw() algoritmasinin JS karsiligi. */
+  function unlzw(inp) {
+    if (inp.length < 3 || inp[0] !== 0x1f || inp[1] !== 0x9d) throw new Error("not a .Z file");
+    let flags = inp[2];
+    if (flags & 0x60) throw new Error("unknown lzw flags");
+    let max = flags & 0x1f;
+    if (max < 9 || max > 16) throw new Error("lzw bits out of range");
+    if (max === 9) max = 10;
+    const block = (flags & 0x80) !== 0;
+    let pos = 3;
+    let mark = pos;
+    let bits = 9, mask = 0x1ff, end = block ? 256 : 255;
+    const prefix = new Uint16Array(65536), suffix = new Uint8Array(65536), match = new Uint8Array(65282);
+    let out = new Uint8Array(Math.max(1024, inp.length * 4)), oc = 0;
+    const put = (b) => { if (oc >= out.length) { const n = new Uint8Array(out.length * 2); n.set(out); out = n; } out[oc++] = b; };
+    if (pos >= inp.length) return out.subarray(0, 0);
+    let buf = inp[pos++];
+    if (pos >= inp.length) throw new Error("truncated");
+    buf += inp[pos++] << 8;
+    let prev = buf & mask, fin = prev;
+    buf >>>= bits;
+    let left = 16 - bits;
+    if (prev > 255) throw new Error("invalid lzw code");
+    put(fin);
+    let stack = 0;
+    for (;;) {
+      if (end >= mask && bits < max) {
+        const rem = (pos - mark) % bits;
+        if (rem) pos += bits - rem;
+        buf = 0; left = 0; mark = pos;
+        bits++; mask = (mask << 1) | 1;
+      }
+      if (pos >= inp.length) break;
+      buf += inp[pos++] << left; left += 8;
+      if (left < bits) {
+        if (pos >= inp.length) throw new Error("truncated");
+        buf += inp[pos++] << left; left += 8;
+      }
+      let code = buf & mask;
+      buf >>>= bits; left -= bits;
+      if (code === 256 && block) {
+        const rem = (pos - mark) % bits;
+        if (rem) pos += bits - rem;
+        buf = 0; left = 0; mark = pos;
+        bits = 9; mask = 0x1ff; end = 255;
+        continue;
+      }
+      const temp = code;
+      if (code > end) {
+        if (code !== end + 1 || prev > end) throw new Error("invalid lzw code");
+        match[stack++] = fin;
+        code = prev;
+      }
+      while (code >= 256) { match[stack++] = suffix[code]; code = prefix[code]; }
+      match[stack++] = code;
+      fin = code;
+      if (end < mask) { end++; prefix[end] = prev; suffix[end] = fin; }
+      prev = temp;
+      while (stack > 0) put(match[--stack]);
+    }
+    return out.subarray(0, oc);
+  }
+
   async function readFileText(file) {
     const name = file.name;
-    if (/\.Z$/.test(name)) throw new Error(t("err.Z"));
     let buf = await file.arrayBuffer();
+    const head = new Uint8Array(buf.slice(0, 2));
+    if (/\.Z$/i.test(name) || (head[0] === 0x1f && head[1] === 0x9d)) buf = unlzw(new Uint8Array(buf)).slice().buffer;
     if (/\.gz$/i.test(name)) {
       const ds = new DecompressionStream("gzip");
       buf = await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
@@ -162,7 +226,7 @@
       sig_phase: n("#p-sp") ?? 0.01, sig_code: n("#p-sc") ?? 1.0,
       zwd_block_h: n("#p-zwd") ?? 2, spp_step: n("#p-spp") ?? 300,
       mode: $("#p-mode").value, systems: $("#p-sys").value,
-      rate: n("#p-rate"), min_arc_min: n("#p-minarc") ?? 10,
+      rate: n("#p-rate"), min_arc_min: n("#p-minarc"),
       code_kf: $("#p-ckf").checked, code_kf_tau: n("#p-ckftau") ?? 100,
     };
   }
@@ -221,7 +285,7 @@
         state.files[k] = [{ name: DEMO[k], text: txt }];
       }
       delete state.files.atx; delete state.files.dcb; delete state.files.clk;
-      $("#p-mode").value = "static"; $("#p-sys").value = "GE"; $("#p-rate").value = "";
+      $("#p-mode").value = "auto"; $("#p-sys").value = "GE"; $("#p-rate").value = ""; $("#p-minarc").value = "";
       $("#p-ckf").checked = true; $("#p-ckftau").value = "100";
       $("#p-epoch").value = DEMO.epoch;
       [$("#p-rx").value, $("#p-ry").value, $("#p-rz").value] = DEMO.ref;
@@ -602,6 +666,7 @@
           <h3>${esc(S.marker || t("sum.station"))}: ${R.kin ? esc(t("sum.kinTrack")) + ", " + esc(E.used) + " (" + esc(t("sum.kinAt")) + ")" : esc(t("sum.static"))}</h3>
           <div class="coord">${xyz(L.X, L.sX_mm)}</div>
           <p class="geo">φ ${esc(S.lat)} &nbsp; λ ${esc(S.lon)} &nbsp; h ${num(S.h, 4)} m</p>
+          ${R.meta.mode_auto && R.meta.mode_auto.requested === "auto" ? `<p class="note">${esc(t("sum.auto." + (R.meta.mode_auto.reason || "static_fit")))}${R.meta.mode_auto.spp_spread_m != null ? " (" + esc(t("sum.auto.spread")) + " " + num(R.meta.mode_auto.spp_spread_m, 1) + " m)" : ""}</p>` : ""}
           ${kinH}
         </div>
         <div class="plate-side">
@@ -636,6 +701,7 @@
       [t("pre.arcs"), P.n_arcs], [t("pre.usableArcs"), P.n_usable_arcs], [t("pre.outliers"), P.n_outlier],
       [t("pre.usable"), P.n_usable], [t("pre.thr"), `GF ${num(P.gf_thr, 2)} m, MW ${num(P.mw_thr, 0)}`],
       ...(P.n_win_slips ? [[t("pre.winSlips"), P.n_win_slips]] : []),
+      ...(P.n_lli ? [[t("pre.lli"), P.n_lli]] : []),
     ]);
     const jt = P.jumps.length
       ? table("jumps", t("pre.jumps"), [{ k: "t", l: "col.time" }, { k: "median_m", l: "col.median", d: 3 }, { k: "nsat", l: "col.nsat", d: 0 }, { k: "k_ms", l: "col.k", d: 0 }], P.jumps)
@@ -726,7 +792,8 @@
     const L = R.l3, pl = R.plots;
     const D = R.data;
     const info = kv([
-      [t("l3.mode"), esc(t("set.mode." + (L.mode || "static")))],
+      [t("l3.mode"), esc(t("set.mode." + (L.mode || "static"))) + (R.meta.mode_auto && R.meta.mode_auto.requested === "auto" ? " · " + esc(t("l3.autoChosen")) : "")],
+      ...(R.meta.clean ? [[t("l3.clean"), `${R.meta.clean.split} / ${R.meta.clean.removed_phase} / ${R.meta.clean.removed_code} (${R.meta.clean.iterations} ${esc(t("l3.cleanIter"))})`]] : []),
       [t("l3.clockSrc"), `${esc(t("l3.clockSrc." + (D.sat_clock || "sp3")))}, ${num(D.rate, 0)} s`],
       [t("l3.sats"), `${L.n_gps_used ?? "–"} / ${L.n_gal_used ?? 0}`],
       ...(L.isb_ns !== null && L.isb_ns !== undefined ? [[t("l3.isb"), `${num(L.isb_ns, 2)} ± ${num(L.sisb_ns, 2)} ns`]] : []),

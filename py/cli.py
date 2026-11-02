@@ -32,10 +32,11 @@ def main():
     ap.add_argument("obs")
     ap.add_argument("sp3", nargs="+")
     ap.add_argument("--clk", nargs="+", help="RINEX saat dosyalari (ornegin 30 s)")
-    ap.add_argument("--mode", choices=["static", "kinematic"], default="static")
+    ap.add_argument("--mode", choices=["auto", "static", "kinematic"], default="auto",
+                    help="auto: hareket varsa kinematik, yoksa statik")
     ap.add_argument("--rate", type=float, help="islem araligi [s]; verilmezse CLK (yoksa SP3) araligi")
     ap.add_argument("--systems", default="GE", help="G veya GE")
-    ap.add_argument("--min-arc", type=float, default=10.0, help="en kisa kullanilir yay [dakika]")
+    ap.add_argument("--min-arc", type=float, help="en kisa kullanilir yay [dakika]; verilmezse dosya suresine gore")
     ap.add_argument("--no-code-kf", action="store_true", help="kod olculerine Kalman filtresi uygulama")
     ap.add_argument("--code-kf-tau", type=float, default=100.0, help="kod filtresinin zaman sabiti tau [s]")
     ap.add_argument("--nav")

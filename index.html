@@ -64,6 +64,7 @@
           <label class="field">
             <span data-i18n="set.mode">Çözüm türü</span>
             <select id="p-mode">
+              <option value="auto" data-i18n="set.mode.auto" selected>Otomatik</option>
               <option value="static" data-i18n="set.mode.static">Statik</option>
               <option value="kinematic" data-i18n="set.mode.kinematic">Kinematik</option>
             </select>
@@ -108,7 +109,7 @@
             <label class="field narrow"><span data-i18n="set.zwd"></span><input id="p-zwd" type="number" step="0.5" min="0.5" value="2"></label>
             <label class="field narrow"><span data-i18n="set.spp"></span><input id="p-spp" type="number" step="30" min="30" value="300"></label>
             <label class="field narrow"><span data-i18n="set.rate"></span><input id="p-rate" type="number" step="1" min="1" placeholder="auto"><small data-i18n="set.rate.hint"></small></label>
-            <label class="field narrow"><span data-i18n="set.minarc"></span><input id="p-minarc" type="number" step="1" min="1" value="10"></label>
+            <label class="field narrow"><span data-i18n="set.minarc"></span><input id="p-minarc" type="number" step="1" min="1" placeholder="auto"></label>
           </div>
         </details>
       </div>

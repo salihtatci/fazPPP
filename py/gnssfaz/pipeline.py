@@ -65,13 +65,16 @@ def run(files, params=None, progress=None, default_atx=None):
     sig_code = float(params.get("sig_code", 1.0))
     zwd_block = float(params.get("zwd_block_h", 2.0)) * 3600.0
     spp_step = float(params.get("spp_step", 300.0))
-    mode = "kinematic" if str(params.get("mode") or "static").lower().startswith("kin") else "static"
+    _m = str(params.get("mode") or "auto").lower()
+    mode_req = "kinematic" if _m.startswith("kin") else ("static" if _m.startswith("sta") else "auto")
+    mode = "static" if mode_req == "auto" else mode_req
     systems = "".join(c for c in str(params.get("systems") or "GE").upper() if c in "GE") or "G"
     if "G" not in systems:
         systems = "G" + systems
     rate_req = params.get("rate")
     rate_req = float(rate_req) if rate_req not in (None, "", 0) else None
-    min_arc = float(params.get("min_arc_min") or 10.0)
+    min_arc_req = params.get("min_arc_min")
+    min_arc_req = float(min_arc_req) if min_arc_req not in (None, "", 0) else None
     code_kf = params.get("code_kf", True) not in (False, "0", 0, "false", "no")
     code_kf_tau = float(params.get("code_kf_tau") or 100.0)
     code_kf_thr = 5.0
@@ -115,12 +118,27 @@ def run(files, params=None, progress=None, default_atx=None):
         warn.append("sys_skipped:" + ",".join(skipped))
     if "E:nodual" in H.get("systems_skipped", []):
         warn.append("gal_nodual")
-    if clk is None and mode == "kinematic":
-        warn.append("kin_no_clk")
+    if clk is not None:
+        cc = _clk_sp3_check(clk, sp3, t_first, t_last)
+        if cc is not None and cc > 0.3:
+            warn.append(f"clk_sp3_mismatch:{cc:.2f} m")
+    out_sp3 = float(np.mean((obs["t"] < sp3["t"][0]) | (obs["t"] > sp3["t"][-1])))
+    if out_sp3 > 0.02:
+        warn.append(f"sp3_partial:{100 * out_sp3:.0f}%")
+    if clk is not None:
+        out_clk = float(np.mean((obs["t"] < clk["t"][0]) | (obs["t"] > clk["t"][-1])))
+        if out_clk > 0.02:
+            warn.append(f"clk_partial:{100 * out_clk:.0f}%")
 
     # ------------------------------------------------------------------ 2. on isleme
     step("preprocess", 0.10)
+    span_min = (t_last - t_first) / 60.0
+    min_arc = min_arc_req if min_arc_req is not None else float(min(10.0, max(2.0, 0.3 * span_min)))
+    if min_arc_req is None and min_arc < 10.0:
+        warn.append(f"short_file:{min_arc:.1f}")
     P = pre.preprocess(obs, min_arc_sec=min_arc * 60.0)
+    if P["stats"].get("lli_ignored"):
+        warn.append("lli_ignored")
     t, prn = P["t"], P["prn"]
     n = len(t)
     if n == 0:
@@ -145,11 +163,16 @@ def run(files, params=None, progress=None, default_atx=None):
     # ------------------------------------------------------------------ 3. yaklasik konum
     X0 = np.array(H["approx"], float)
     x0_src = "header"
+    Xspp = _spp_first(P, sp3)
     if not np.all(np.isfinite(X0)) or np.linalg.norm(X0) < 6.0e6:
-        X0 = _spp_first(P, sp3)
+        X0 = Xspp
         x0_src = "spp"
         if X0 is None:
             raise Hata("no_approx|Yaklasik konum bulunamadi (RINEX basliginda yok, kod cozumu de basarisiz).")
+    elif Xspp is not None and np.linalg.norm(Xspp - X0) > 1000.0:
+        warn.append(f"approx_bad:{np.linalg.norm(Xspp - X0) / 1000:.1f} km")
+        X0 = Xspp
+        x0_src = "spp"
     lat0, lon0, h0 = geo.xyz2llh(*X0)
     Rn = geo.rot_neu(lat0, lon0)
 
@@ -259,55 +282,121 @@ def run(files, params=None, progress=None, default_atx=None):
     clk_int = clk["interval"] if clk is not None else None
     if rate_req:
         rate = max(rate_req, float(P["interval"]))
-        on_grid = np.abs(((t - day0 + 1e-3) % rate) - 1e-3) < 1e-3
+        ref0 = day0
         if clk is None and rate < sp3_int - 1e-6:
             warn.append("clk_from_sp3")
     elif clk is not None:
         rate = max(clk_int, float(P["interval"]))
-        on_grid = np.abs(((t - day0 + 1e-3) % rate) - 1e-3) < 1e-3
+        ref0 = day0
     else:
         rate = sp3_int
-        on_grid = np.abs(((t - sp3["t"][0] + 1e-3) % sp3_int) - 1e-3) < 1e-3
+        ref0 = sp3["t"][0]
+    on_grid, offgrid = _grid_select(t, rate, ref0, float(P["interval"]), clk is not None or bool(rate_req))
+    if offgrid:
+        warn.append("epochs_offgrid")
     base = valid & P["usable"] & (el >= cutoff) & np.isfinite(Ttrop)
-    sel = base & on_grid
-    min_sat = 4 if mode == "kinematic" else 1
-    for _ in range(3):
-        arcs_sel, cnt = np.unique(P["arc"][sel], return_counts=True)
-        good_arcs = set(arcs_sel[cnt >= 3].tolist())
-        sel &= np.isin(P["arc"], list(good_arcs))
-        if min_sat > 1:
-            ep_u, ep_c = np.unique(t[sel], return_counts=True)
-            sel &= np.isin(t, ep_u[ep_c >= min_sat])
-    if sel.sum() < 20:
-        raise Hata("too_few_obs|Cozum icin yeterli olcu yok (SP3 epoklarinda, yukseklik sinirinin uzerinde).")
-    ep_sel = np.unique(t[sel])
-    req = params.get("epoch")
-    if req:
-        hh, mm, ss = (list(map(float, str(req).split(":"))) + [0, 0])[:3]
-        t_req = day0 + hh * 3600 + mm * 60 + ss
-    else:
-        t_req = ep_sel[len(ep_sel) // 2]
-    t_ep = float(ep_sel[np.argmin(np.abs(ep_sel - t_req))])
-    if abs(t_ep - t_req) > 0.5:
-        warn.append("epoch_snapped")
+
+    def make_sel(min_sat, extra=None):
+        s_ = base & on_grid
+        if extra is not None:
+            s_ &= extra
+        for _ in range(3):
+            arcs_sel, cnt = np.unique(P["arc"][s_], return_counts=True)
+            s_ &= np.isin(P["arc"], arcs_sel[cnt >= 3])
+            if min_sat > 1:
+                ep_u, ep_c = np.unique(t[s_], return_counts=True)
+                s_ &= np.isin(t, ep_u[ep_c >= min_sat])
+        return s_
 
     def subset(mask):
         return {"t": t[mask], "arc": P["arc"][mask], "Xs": Xs[mask], "el": el[mask], "cdts": C * dts_tot[mask],
                 "Tmodel": Ttrop[mask], "mw": mwet[mask], "isE": isE[mask]}
 
-    dsel = subset(sel)
+    def pick_epoch(s_):
+        ep_s = np.unique(t[s_])
+        req = params.get("epoch")
+        if req:
+            hh, mm, ss = (list(map(float, str(req).split(":"))) + [0, 0])[:3]
+            tr = day0 + hh * 3600 + mm * 60 + ss
+        else:
+            tr = ep_s[len(ep_s) // 2]
+        return tr, float(ep_s[np.argmin(np.abs(ep_s - tr))])
 
-    # ------------------------------------------------------------------ 8. L3 cozumu
+    def solve(s_, md, phase=None, code=None, cph=None, ccd=None):
+        _, te = pick_epoch(s_)
+        return est.phase_solution(subset(s_), L3[s_] if phase is None else phase, P3[s_] if code is None else code,
+                                  corr_L3[s_] if cph is None else cph, corr_P3[s_] if ccd is None else ccd,
+                                  X0, te, Rn, sig_phase, sig_code, zwd_block, mode=md)
+
+    def solve_clean(md):
+        """Cozum + artiga dayali ayiklama (kacmis faz kopmasinda yay bolme, aykiri cikarma), en cok 5 tur."""
+        ms = 4 if md == "kinematic" else 1
+        rem = np.zeros(n, bool)
+        cl = {"split": 0, "removed_phase": 0, "removed_code": 0, "iterations": 0}
+        s_ = make_sel(ms)
+        if s_.sum() < 20:
+            return None, s_, cl, rem
+        so = None
+        for it in range(5):
+            so = solve(s_, md)
+            cl["iterations"] = it + 1
+            if it == 4 or so["s0"] > 20.0:          # kaba model hatasi (ornegin hareketli aliciya statik): ayiklama yok
+                break
+            if not _clean_residuals(so, s_, P, t, el, sig_phase, sig_code, rem, cl):
+                break
+            s_new = make_sel(ms, extra=~rem)
+            if s_new.sum() < 20:
+                break
+            s_ = s_new
+        return so, s_, cl, rem
+
+    # ------------------------------------------------------------------ 7b/8. statik mi kinematik mi? cozum ve ayiklama
     step("l3", 0.50)
-    sol = est.phase_solution(dsel, L3[sel], P3[sel], corr_L3[sel], corr_P3[sel], X0, t_ep, Rn,
-                             sig_phase, sig_code, zwd_block, mode=mode)
-    sol_no4b = est.phase_solution(dsel, L3[sel], P3[sel], np.zeros(sel.sum()), np.zeros(sel.sum()), X0, t_ep, Rn,
-                                  sig_phase, sig_code, zwd_block, mode=mode)
+    mode_info = {"requested": mode_req, "chosen": None, "reason": None}
+    sol = None
+    if mode_req == "auto":
+        motion = _motion_test(P, sp3, nav, X0, lat0, h0, Rn, cutoff, met, Pm, Tm_, RH)
+        mode_info["spp_spread_m"] = _r(motion, 2) if motion is not None else None
+        if motion is not None and motion > 10.0:
+            mode, mode_info["reason"] = "kinematic", "spp_motion"
+        else:
+            mode, mode_info["reason"] = "static", "static_fit"
+            st0, s_st, cl_st, rem_st = solve_clean("static")
+            if st0 is not None:
+                mode_info["s0_static"] = _r(st0["s0"], 3)
+                sol, sel, clean, removed = st0, s_st, cl_st, rem_st
+                if st0["s0"] > 2.5 or st0["rms_phase"] > 0.04:
+                    k0, s_k, cl_k, rem_k = solve_clean("kinematic")
+                    if k0 is not None:
+                        mode_info["s0_kinematic"] = _r(k0["s0"], 3)
+                        if k0["s0"] < 0.5 * st0["s0"]:
+                            mode, mode_info["reason"] = "kinematic", "residuals"
+                            sol, sel, clean, removed = k0, s_k, cl_k, rem_k
+        if mode == "kinematic":
+            warn.append("auto_kin")
+    mode_info["chosen"] = mode
+    if clk is None and mode == "kinematic":
+        warn.append("kin_no_clk")
+    min_sat = 4 if mode == "kinematic" else 1
+    if sol is None or (sol.get("mode") != mode):
+        sol, sel, clean, removed = solve_clean(mode)
+    if sol is None:
+        raise Hata("too_few_obs|Cozum icin yeterli olcu yok (SP3 epoklarinda, yukseklik sinirinin uzerinde).")
+    if clean["split"] or clean["removed_phase"] or clean["removed_code"]:
+        warn.append("cleaned:" + f"{clean['split']}/{clean['removed_phase']}/{clean['removed_code']}")
+    if mode == "static" and sol["s0"] > 3.0:
+        warn.append("static_bad_fit")
+    elif sol["s0"] > 3.0:
+        warn.append("bad_fit")
+    t_req, t_ep = pick_epoch(sel)
+    if abs(t_ep - t_req) > 0.5:
+        warn.append("epoch_snapped")
+    dsel = subset(sel)
+    sol_no4b = solve(sel, mode, cph=np.zeros(sel.sum()), ccd=np.zeros(sel.sum()))
     sol_raw = None
     if KF is not None:
         P3raw = a3 * P["P1raw"] + b3 * P["P2raw"]
-        sol_raw = est.phase_solution(dsel, L3[sel], P3raw[sel], corr_L3[sel], corr_P3[sel], X0, t_ep, Rn,
-                                     sig_phase, sig_code, zwd_block, mode=mode)
+        sol_raw = solve(sel, mode, code=P3raw[sel])
     Xst = sol["X"]
     latS, lonS, hS = geo.xyz2llh(*Xst)
 
@@ -481,12 +570,13 @@ def run(files, params=None, progress=None, default_atx=None):
 
     n_gal = int(len(np.unique(prn[isE])))
     res = {
-        "meta": {"version": "1.2.0", "runtime_s": _r(time.time() - T0, 1), "warnings": warn,
+        "meta": {"version": "1.3.0", "runtime_s": _r(time.time() - T0, 1), "warnings": warn, "mode_auto": mode_info,
+                 "clean": clean,
                  "atx_source": atx_src if atx_text else None, "rec_ant_found": atx["rec_name"],
                  "x0_source": x0_src, "ref_source": ref_src, "ref_xyz": _lst(Xref),
                  "params": {"cutoff": cutoff, "sig_phase": sig_phase, "sig_code": sig_code,
                             "zwd_block_h": zwd_block / 3600, "spp_step": spp_step, "mode": mode,
-                            "systems": systems, "rate": rate, "min_arc_min": min_arc,
+                            "systems": systems, "rate": rate, "min_arc_min": min_arc, "mode_req": mode_req,
                             "code_kf": bool(code_kf), "code_kf_tau": code_kf_tau}},
         "station": {"marker": H["marker"], "receiver": H["receiver"], "antenna": H["antenna"].strip(),
                     "approx": _lst(H["approx"]), "delta_hen": _lst(H["delta_hen"]),
@@ -578,6 +668,12 @@ def _arcs_epoch(P, idx_ep, prn):
     for i in idx_ep:
         a = P["arc"][i]
         info = next((x for x in P["arcs"] if x["arc"] == a), None)
+        if info is None and a >= 0:                    # artiga dayali ayiklamada bolunmus yay
+            mm = np.where(P["arc"] == a)[0]
+            if len(mm):
+                tm = P["t"][mm]
+                info = {"arc": a, "start": float(tm.min()), "end": float(tm.max()), "n": int(len(mm)),
+                        "mw_std": float(np.std(P["MW"][mm])) if len(mm) > 1 else None, "usable": True}
         if info is None:
             rows.append({"sv": sv_name(prn[i]), "start": None, "end": None, "n": 0, "min": 0,
                          "mw_std": None, "usable": False, "outlier": bool(P["outlier"][i])})
@@ -1039,3 +1135,122 @@ def _codefilter_report(P, KF, sel, idx_ep, sol, sol_raw, mode, Rn, Xref, Xst, sp
             "n_rej": int(KF["rej1"][used].sum() + KF["rej2"][used].sum()), "n_restart": int(KF["n_restart"]),
             "n_filtered": int(used.sum()), "k_ss": _r(min(float(P["interval"]) / tau, 1.0), 3),
             "spp_cmp": spp_cmp, "phase_effect": phase_eff, "plot": plot}
+
+
+def _grid_select(t, rate, ref0, interval, interp_ok):
+    """Islem epoklari: ref0 + k*rate dugumleri. Gozlem epoklari dugumlere oturmuyorsa (kaydirilmis ya da
+    ondalikli zaman etiketleri) her dugume en yakin gozlem epogu secilir. Doner: (maske, kaydirildi_mi)."""
+    ep = np.unique(t)
+    exact = np.abs(((ep - ref0 + 1e-3) % rate) - 1e-3) < 1e-3
+    k0 = math.ceil((ep[0] - ref0) / rate - 1e-9)
+    k1 = math.floor((ep[-1] - ref0) / rate + 1e-9)
+    n_nodes = max(k1 - k0 + 1, 1)
+    if exact.sum() >= 0.5 * min(n_nodes, len(ep)):
+        return np.isin(t, ep[exact]), False
+    tol = 0.5 * rate if interp_ok else max(0.5 * interval, 1.0)
+    nodes = ref0 + rate * np.arange(k0 - 1, k1 + 2)
+    j = np.clip(np.searchsorted(ep, nodes), 1, len(ep) - 1)
+    left, right = ep[j - 1], ep[j]
+    best = np.where(np.abs(nodes - left) <= np.abs(right - nodes), left, right)
+    ok = np.abs(best - nodes) <= tol + 1e-6
+    chosen = np.unique(best[ok])
+    return np.isin(t, chosen), True
+
+
+def _clk_sp3_check(clk, sp3, t0, t1):
+    """CLK ve SP3 uydu saatlerinin SP3 epoklarinda tutarliligi [m]: epok ortalamasi cikarilmis uydu farklarinin
+    medyan RMS'i. Ayni analiz merkezinin urunlerinde mm, farkli merkezlerde dm-m duzeyindedir."""
+    ts = sp3["t"][(sp3["t"] >= t0 - 1) & (sp3["t"] <= t1 + 1)]
+    if len(ts) < 2:
+        return None
+    rows = []
+    for p in sp3["prns"]:
+        a = orbit.sp3_clock(clk, p, ts)
+        b = sp3["clk"][np.isin(sp3["t"], ts), sp3["prns"].index(p)]
+        rows.append((a - b) * C)
+    D = np.array(rows)                       # (uydu, epok)
+    if not np.isfinite(D).any():
+        return None
+    D = D - np.nanmedian(D, axis=0)[None, :]
+    rms = np.sqrt(np.nanmean(D ** 2, axis=1))
+    rms = rms[np.isfinite(rms)]
+    return float(np.median(rms)) if len(rms) else None
+
+
+def _motion_test(P, sp3, nav, X0, lat0, h0, Rn, cutoff, met, Pm, Tm_, RH):
+    """Kod cozumune (GPS, en cok ~120 epok) gore yatay dagilim: medyandan uzakliklarin %90'i [m]."""
+    ep = np.unique(P["t"][~P["isE"]])
+    if len(ep) < 5:
+        return None
+    grid = ep[np.linspace(0, len(ep) - 1, min(120, len(ep))).astype(int)]
+    s = _spp_series(P, sp3, nav, X0, lat0, h0, Rn, X0, grid[0], 300.0, cutoff, met, Pm, Tm_, RH, grid=grid)
+    ser = s.get("series") or []
+    if len(ser) < 5:
+        return None
+    N = np.array([o["N"] for o in ser])
+    E = np.array([o["E"] for o in ser])
+    ok = np.array([o["rms"] for o in ser]) < 20.0
+    if ok.sum() < 5:
+        return None
+    hor = np.hypot(N[ok] - np.median(N[ok]), E[ok] - np.median(E[ok]))
+    return float(np.percentile(hor, 90))
+
+
+def _clean_residuals(sol, sel, P, t, el, sig_phase, sig_code, removed, clean):
+    """Artiga dayali ayiklama. Faz artiklarinda basamak bulunan yaylar bolunur (kacmis faz kopmasi),
+    tek tek buyuk faz ya da kod artiklari cikarilir. Degisiklik olduysa True."""
+    idx = np.where(sel)[0]
+    se = np.sin(np.radians(el[idx]))
+    vph = sol["v_phase"] * se                     # yukseklige gore olceklenmis
+    vcd = sol["v_code"] * se
+    sph = 1.4826 * float(np.median(np.abs(vph))) + 1e-4
+    scd = 1.4826 * float(np.median(np.abs(vcd))) + 1e-3
+    changed = False
+    # 1) basamak: her yayda pencere ortalamalari farki
+    arc = P["arc"]
+    next_id = int(arc.max()) + 1
+    cands = []
+    for a in np.unique(arc[idx]):
+        m = np.where(arc[idx] == a)[0]
+        if len(m) < 8:
+            continue
+        m = m[np.argsort(t[idx][m])]
+        r = vph[m]
+        tt = t[idx][m]
+        dtm = float(np.median(np.diff(tt))) if len(tt) > 1 else 30.0
+        W = int(np.clip(round(120.0 / max(dtm, 1e-3)), 3, max(3, len(m) // 4)))   # ~2 dk pencere
+        if len(m) < 2 * W:
+            continue
+        c = np.r_[0.0, np.cumsum(r)]
+        k = np.arange(W, len(m) - W + 1)
+        stepv = (c[k + W] - c[k]) / W - (c[k] - c[k - W]) / W
+        thr = max(0.025, 5.0 * sph * math.sqrt(2.0 / W))
+        j = int(np.argmax(np.abs(stepv)))
+        if abs(stepv[j]) > thr:
+            cands.append((abs(stepv[j]), a, t[idx][m][k[j]]))
+    if cands:
+        # yalniz en belirgin basamaklar: bozuk yaylar oteki uydularin artiklarini da kaydirir
+        big = max(c[0] for c in cands)
+        for sz, a, t_cut in cands:
+            if sz >= 0.5 * big:
+                allm = np.where((arc == a) & (t >= t_cut - 1e-6))[0]
+                arc[allm] = next_id
+                next_id += 1
+                clean["split"] += 1
+                changed = True
+        return True
+    # 2) tek tek aykirilar (en buyukler, en cok kayitlarin %2'si)
+    lim = max(1, int(0.02 * len(idx)))
+    bad_ph = np.where(np.abs(vph) > max(0.03, 5.0 * sph))[0]
+    bad_cd = np.where(np.abs(vcd) > max(5.0, 5.0 * scd))[0]
+    if len(bad_ph):
+        bad_ph = bad_ph[np.argsort(-np.abs(vph[bad_ph]))][:lim]
+        removed[idx[bad_ph]] = True
+        clean["removed_phase"] += len(bad_ph)
+        changed = True
+    if len(bad_cd):
+        bad_cd = bad_cd[np.argsort(-np.abs(vcd[bad_cd]))][:lim]
+        removed[idx[bad_cd]] = True
+        clean["removed_code"] += len(bad_cd)
+        changed = True
+    return changed
