@@ -1,0 +1,2432 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FazPPP Kullanım Kılavuzu · FazPPP</title>
+<meta name="description" content="FazPPP kullanım kılavuzu: dosyalar, arayüz, ayarlar, sonuç sekmeleri ve Python kodunun satır satır anlatımı.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/manual.css">
+</head>
+<body>
+<a class="skip" href="#m-body">İçeriğe geç</a>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="index.html" aria-label="FazPPP">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/><circle cx="22.5" cy="9.5" r="3" fill="var(--accent)"/></svg>
+      <span>FazPPP</span>
+    </a>
+    <nav class="top-nav" aria-label="Ana menü">
+      <a href="index.html#compute" data-i18n="nav.compute">Hesapla</a>
+      <a href="index.html#method" data-i18n="nav.method">Yöntem</a>
+      <a href="kilavuz.html" data-i18n="nav.manual" aria-current="page">Kılavuz</a>
+      <a href="index.html#about" data-i18n="nav.about">Hakkında</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Dil / Language">
+      <button type="button" data-lang="tr" aria-pressed="true">TR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap m-wrap">
+  <div class="m-head">
+    <p class="m-kicker"><a href="index.html" data-i18n="man.back">← Programa dön</a></p>
+    <h1>FazPPP Kullanım Kılavuzu</h1>
+    <p class="m-lead">Dosyaların hazırlanmasından sonuçların okunmasına, sonra da hesabı yapan Python kodunun satır satır anlatımına kadar.</p>
+    <p class="m-en" hidden>This manual is currently available in Turkish only. The program itself is fully available in English.</p>
+  </div>
+
+  <div class="m-grid">
+    <nav class="m-toc" aria-label="İçindekiler">
+      <details open>
+        <summary>İçindekiler</summary>
+        <ol class="m-toc-l">
+<li><a href="#b1">1. Giriş</a>
+</li>
+<li><a href="#b2">2. Başlamadan önce: hangi dosyalar gerekli</a>
+<ol class="m-toc-s">
+<li><a href="#dosya-adlari-nasil-okunur">Dosya adları nasıl okunur</a></li>
+<li><a href="#nereden-indirilir">Nereden indirilir</a></li>
+<li><a href="#sikistirilmis-dosyalar">Sıkıştırılmış dosyalar</a></li>
+</ol></li>
+<li><a href="#b3">3. Arayüzü tanıyalım</a>
+<ol class="m-toc-s">
+<li><a href="#giris-ekrani">Giriş ekranı</a></li>
+</ol></li>
+<li><a href="#b4">4. Adım adım ilk hesap</a>
+<ol class="m-toc-s">
+<li><a href="#a-ornek-veriyle-hic-dosyan-yokken">A. Örnek veriyle (hiç dosyan yokken)</a></li>
+<li><a href="#b-kendi-dosyalarinla">B. Kendi dosyalarınla</a></li>
+</ol></li>
+<li><a href="#b5">5. Ayarlar tek tek</a>
+<ol class="m-toc-s">
+<li><a href="#gelismis-ayarlar">Gelişmiş ayarlar</a></li>
+</ol></li>
+<li><a href="#b6">6. Sonuç sekmeleri</a>
+<ol class="m-toc-s">
+<li><a href="#ozet">Özet</a></li>
+<li><a href="#veri-ve-on-isleme">Veri ve ön işleme</a></li>
+<li><a href="#kalman-filtresi">Kalman filtresi</a></li>
+<li><a href="#uydular">Uydular</a></li>
+<li><a href="#troposfer">Troposfer</a></li>
+<li><a href="#duzeltmeler">Düzeltmeler</a></li>
+<li><a href="#faz-cozumu">Faz çözümü</a></li>
+<li><a href="#iyonosfer">İyonosfer</a></li>
+<li><a href="#tek-frekans">Tek frekans</a></li>
+<li><a href="#cok-yolluluk">Çok yolluluk</a></li>
+<li><a href="#kod-cozumu">Kod çözümü</a></li>
+</ol></li>
+<li><a href="#b7">7. Sonuçları indirme</a>
+</li>
+<li><a href="#b8">8. Perde arkası: Hesapla&#x27;ya basınca hangi dosyada ne yapılıyor</a>
+<ol class="m-toc-s">
+<li><a href="#b8-1">8.1 Dosyalar ve görevleri</a></li>
+<li><a href="#b8-2">8.2 Bir hesap baştan sona: düğmeden ekrana</a></li>
+<li><a href="#b8-3">8.3 Hesap zinciri adım adım (pipeline.py içinde)</a></li>
+<li><a href="#b8-4">8.4 Bir şeyi değiştirmek istersen</a></li>
+</ol></li>
+<li><a href="#b9">9. Python kodu satır satır</a>
+<ol class="m-toc-s">
+<li><a href="#b9-1">9.1 Başlamadan: 5 dakikalık Python ve numpy dersi</a></li>
+<li><a href="#b9-2">9.2 Verinin kodun içindeki hali: kayıt dizileri</a></li>
+<li><a href="#b9-3">9.3 preprocess.py: veriyi temizleme ve faz kopmaları</a></li>
+<li><a href="#b9-4">9.4 codefilter.py: kod ölçülerine Kalman filtresi</a></li>
+<li><a href="#b9-5">9.5 orbit.py ve pipeline.py: uydunun konumu ve saati</a></li>
+<li><a href="#b9-6">9.6 corrections.py: düzeltme modelleri</a></li>
+<li><a href="#b9-7">9.7 estimate.py: en küçük kareler</a></li>
+<li><a href="#b9-8">9.8 pipeline.py: iyonosfer ve çok yolluluk</a></li>
+<li><a href="#b9-9">9.9 Kendin dene: modülleri tek tek çağırmak</a></li>
+</ol></li>
+<li><a href="#b10">10. Komut satırından kullanım</a>
+</li>
+<li><a href="#b11">11. Sık karşılaşılan hatalar ve çözümleri</a>
+<ol class="m-toc-s">
+<li><a href="#hesabi-durduran-hatalar">Hesabı durduran hatalar</a></li>
+<li><a href="#hesabi-durdurmayan-ama-dikkat-isteyen-uyarilar">Hesabı durdurmayan ama dikkat isteyen uyarılar</a></li>
+<li><a href="#diger-sik-sorunlar">Diğer sık sorunlar</a></li>
+</ol></li>
+<li><a href="#b12">12. Küçük sözlük</a>
+</li>
+</ol>
+      </details>
+    </nav>
+    <article id="m-body" class="m-body">
+<h2 id="b1"><a class="m-anchor" href="#b1" aria-hidden="true">#</a>1. Giriş</h2>
+<p>FazPPP, bir GNSS istasyonunun konumunu GPS ve Galileo taşıyıcı faz ölçüleriyle hesaplayan ve tamamen web tarayıcısında çalışan bir programdır. Adresi <a href="https://salihtatci.github.io/fazPPP/">https://salihtatci.github.io/fazPPP/</a>. Kurulum, üyelik ya da şifre yok: sayfayı açıyorsun, dosyalarını seçiyorsun, <strong>Hesapla</strong> düğmesine basıyorsun.</p>
+<p>Dosyaların hiçbir sunucuya gitmez. Hesabı senin bilgisayarındaki tarayıcı yapar (Python + numpy, Pyodide üzerinde). İnternet yalnızca ilk açılışta programın kendisini indirmek için gerekir.</p>
+<p>Programın sana verdiği sonuçlar:</p>
+<ul>
+<li>İstasyonun konumu (X, Y, Z ve enlem, boylam, yükseklik): tüm günün tek konumu (statik) ya da her epokta ayrı konum (kinematik)</li>
+<li>Alıcı saat hatası, troposfer gecikmesi, belirsizlikler, DOP değerleri</li>
+<li>İyonosfer (TEC) ve DCB değerleri</li>
+<li>Kod çok yolluluğu (MP1, MP2)</li>
+<li>Tek frekanslı (L1, L2) çözümler ve yayın efemerisiyle kod çözümü</li>
+<li>Kod ölçülerine uygulanan Kalman filtresinin sonuçları</li>
+<li>Verdiğin bir referans koordinatla bütün çözümlerin karşılaştırması</li>
+<li>Hepsinin tek bir PDF raporu</li>
+</ul>
+<p>Kılavuz iki kısımdan oluşur:</p>
+<ol>
+<li><strong>Kullanıcı kısmı (Bölüm 2–7, 11–12):</strong> Programı kullanmak isteyen herkes için. GNSS bilgisi gerekmez; her tıklama tek tek anlatılır.</li>
+<li><strong>Geliştirici kısmı (Bölüm 8–10):</strong> Hesapla düğmesine basınca arka planda hangi dosyada, hangi sırayla ne yapıldığını anlatır. Kodu okumak ya da değiştirmek isteyen için.</li>
+</ol>
+<p>Programı ilk kez kullanıyorsan <a href="#b4">Bölüm 4</a>'teki "Örnek veriyle dene" adımlarıyla başla. Beş dakikada her şeyi görmüş olursun.</p>
+<h2 id="b2"><a class="m-anchor" href="#b2" aria-hidden="true">#</a>2. Başlamadan önce: hangi dosyalar gerekli</h2>
+<p>Hesap için en az iki dosya gerekir: bir <strong>gözlem dosyası</strong> ve bir <strong>SP3 yörünge dosyası</strong>. Diğerleri isteğe bağlıdır; yüklersen sonuç daha iyi ya da daha zengin olur, yüklemezsen program yerine bir varsayım kullanır ve bunu "Uyarılar" kısmında söyler.</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Dosya</th>
+<th>Gerekli mi</th>
+<th>Ne işe yarar</th>
+<th>Yoksa ne olur</th>
+<th>Örnek ad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gözlem (.o, .rnx, .crx)</td>
+<td>evet</td>
+<td>Alıcının kaydettiği kod ve faz ölçüleri. Hesabın ham maddesi.</td>
+<td>Hesap yapılmaz</td>
+<td>ISTA2400.14o</td>
+</tr>
+<tr>
+<td>SP3 yörünge</td>
+<td>evet</td>
+<td>Uyduların her 15 dk'daki (ya da 5 dk) kesin konumu ve saati</td>
+<td>Hesap yapılmaz</td>
+<td>igs18074.sp3</td>
+</tr>
+<tr>
+<td>Saat (CLK)</td>
+<td>hayır</td>
+<td>Uydu saatlerinin 30 s (ya da 5 s) aralıkla kesin değerleri</td>
+<td>Faz çözümü yalnızca SP3 epoklarında (15 dk'da bir) yapılır</td>
+<td>COD0MGXFIN_20233070000_01D_30S_CLK.CLK.gz</td>
+</tr>
+<tr>
+<td>Navigasyon (.n)</td>
+<td>hayır</td>
+<td>Uyduların yayınladığı yaklaşık yörünge ve Klobuchar iyonosfer katsayıları</td>
+<td>Kod çözümü SP3 ile yapılır, Klobuchar çözümleri çıkmaz</td>
+<td>ISTA2400.14n</td>
+</tr>
+<tr>
+<td>Meteoroloji (.m)</td>
+<td>hayır</td>
+<td>İstasyondaki basınç, sıcaklık, nem</td>
+<td>Standart atmosfer kullanılır</td>
+<td>ISTA2400.14m</td>
+</tr>
+<tr>
+<td>ANTEX (.atx)</td>
+<td>hayır</td>
+<td>Alıcı ve uydu antenlerinin kalibrasyonu</td>
+<td>Tarihe göre gömülü igs08.atx ya da igs20.atx kullanılır</td>
+<td>igs14.atx</td>
+</tr>
+<tr>
+<td>DCB</td>
+<td>hayır</td>
+<td>Uydu kod gecikmeleri (P1−P2)</td>
+<td>Uydu DCB'leri veriden kestirilir</td>
+<td>P1P21408.DCB</td>
+</tr>
+</tbody>
+</table></div>
+<p>Tüm dosyalar <strong>aynı güne</strong> ait olmalı. Gözlem 28 Ağustos 2014'ünse SP3 de o günün SP3'ü olmalı. Farklı günler yüklenirse program "SP3 dosyası gözlem günüyle örtüşmüyor" hatası verir.</p>
+<h3 id="dosya-adlari-nasil-okunur"><a class="m-anchor" href="#dosya-adlari-nasil-okunur" aria-hidden="true">#</a>Dosya adları nasıl okunur</h3>
+<p>Dosyayı doğru gün için indirmek için adını okuyabilmek gerekir.</p>
+<ul>
+<li><strong>Eski RINEX 2 adı, <code>ISTA2400.14o</code>:</strong> <code>ISTA</code> istasyon adı, <code>240</code> yılın kaçıncı günü olduğu (28 Ağustos), <code>0</code> oturum, <code>14</code> yıl (2014), <code>o</code> dosya türü (o gözlem, n navigasyon, m meteoroloji). Hatanaka sıkıştırmalı olanların sonu <code>d</code> olur.</li>
+<li><strong>Yeni RINEX 3 adı, <code>ISTA00TUR_R_20233070000_01D_30S_MO.crx.gz</code>:</strong> <code>ISTA00TUR</code> istasyon ve ülke, <code>2023307</code> yıl ve yılın günü (3 Kasım 2023), <code>01D</code> bir günlük dosya, <code>30S</code> 30 saniyede bir kayıt, <code>MO</code> çok sistemli gözlem.</li>
+<li><strong>Eski SP3 adı, <code>igs18074.sp3</code>:</strong> <code>igs</code> üreten merkez, <code>1807</code> GPS haftası, <code>4</code> haftanın günü (0 Pazar, 4 Perşembe).</li>
+<li><strong>Yeni SP3 ve CLK adı, <code>COD0MGXFIN_20233070000_01D_05M_ORB.SP3.gz</code>:</strong> <code>COD</code> CODE merkezi, <code>MGX</code> çok sistemli (Galileo için bunu seç), <code>FIN</code> kesin (final) ürün, <code>05M</code> 5 dakikada bir. Saat dosyasında <code>ORB.SP3</code> yerine <code>CLK.CLK</code> yazar.</li>
+</ul>
+<p>Yılın gününü ve GPS haftasını bulmak için internette "GPS calendar" diye aratman yeterli.</p>
+<h3 id="nereden-indirilir"><a class="m-anchor" href="#nereden-indirilir" aria-hidden="true">#</a>Nereden indirilir</h3>
+<ul>
+<li><strong>IGS veri merkezleri:</strong> CDDIS (NASA, ücretsiz Earthdata hesabı ister) ve BKG (Almanya) gözlem, navigasyon, SP3 ve CLK dosyalarını tutar.</li>
+<li><strong>CODE (Bern Üniversitesi):</strong> MGX SP3 ve CLK ürünleri ile aylık P1−P2 DCB dosyaları.</li>
+<li><strong>SP3 ve CLK'yi aynı merkezden seç.</strong> İkisi farklı merkezlerden olursa (örneğin SP3 IGS, CLK CODE) uydu saatleri uyuşmaz; program bunu fark edip uyarır.</li>
+</ul>
+<h3 id="sikistirilmis-dosyalar"><a class="m-anchor" href="#sikistirilmis-dosyalar" aria-hidden="true">#</a>Sıkıştırılmış dosyalar</h3>
+<p><code>.gz</code>, <code>.Z</code> ve Hatanaka (<code>.crx</code>, <code>.d</code>) dosyalarını açmadan doğrudan yükleyebilirsin; program kendisi açar. <code>.zip</code> ya da <code>.rar</code> içindeki dosyaları ise önce kendin çıkar.</p>
+<h2 id="b3"><a class="m-anchor" href="#b3" aria-hidden="true">#</a>3. Arayüzü tanıyalım</h2>
+<p>Site tek bir uzun sayfadır. Yukarıdan aşağı kaydırdıkça sırayla şu bölümler gelir:</p>
+<ol>
+<li><strong>Üst çubuk ve giriş ekranı:</strong> programın adı, menü, dil seçimi, örnek veri düğmesi</li>
+<li><strong>Dosyalar:</strong> dosyaları yüklediğin kutular</li>
+<li><strong>Ayarlar ve Hesapla düğmesi</strong></li>
+<li><strong>Sonuçlar:</strong> hesap bitince açılır, sekmelerden oluşur</li>
+<li><strong>Yöntem:</strong> hesabın hangi adımlardan oluştuğunun kısa özeti</li>
+<li><strong>Hakkında:</strong> programı kimin, ne için yaptığı ve kaynak kodun bağlantısı</li>
+</ol>
+<p>Araç çubuğundaki menü bağlantıları seni bu bölümlere götürür. Sonuçlar bölümü ilk açılışta gizlidir; hesap bitmeden görünmez.</p>
+<h3 id="giris-ekrani"><a class="m-anchor" href="#giris-ekrani" aria-hidden="true">#</a>Giriş ekranı</h3>
+<figure class="m-fig"><a href="assets/kilavuz/01_giris.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/01_giris.jpg" width="1600" height="1075" alt="FazPPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir" loading="lazy"></a><figcaption>FazPPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir</figcaption></figure>
+
+<ol>
+<li><strong>FazPPP logosu:</strong> Tıklayınca sayfanın en başına döner.</li>
+<li><strong>Menü (Hesapla, Yöntem, Hakkında):</strong> İlgili bölüme kaydırır. Bir şey açılmaz ya da hesap başlamaz; yalnızca sayfayı o noktaya götürür.</li>
+<li><strong>TR / EN:</strong> Arayüz dilini değiştirir. Sonuçlar ve PDF raporu da seçtiğin dilde çıkar. Hesap bittikten sonra dil değiştirirsen sonuçlar yeniden hesaplanmadan yeni dilde gösterilir.</li>
+<li><strong>Dosyaları yükle:</strong> Sayfayı dosya kutularına kaydırır.</li>
+<li><strong>Örnek veriyle dene:</strong> ISTA istasyonunun 28 Ağustos 2014 verisini (gözlem, navigasyon, meteoroloji, SP3) kendisi yükler, referans koordinatı doldurur ve hesabı başlatır. Elinde hiç dosya yokken programı denemenin en kolay yolu budur.</li>
+<li><strong>Gökyüzü grafiği:</strong> ISTA'da o gün görülen GPS uydularının gökteki izleri. Merkez başının tam üstü (90°), dış çember ufuk (0°); K kuzey, D doğu, G güney, B batı. Yalnızca süs içindir, hesaba katılmaz.</li>
+</ol>
+<p>Koyu tema bilgisayarının ayarına göre kendiliğinden açılır; sitede ayrı bir düğmesi yoktur.</p>
+<h2 id="b4"><a class="m-anchor" href="#b4" aria-hidden="true">#</a>4. Adım adım ilk hesap</h2>
+<h3 id="a-ornek-veriyle-hic-dosyan-yokken"><a class="m-anchor" href="#a-ornek-veriyle-hic-dosyan-yokken" aria-hidden="true">#</a>A. Örnek veriyle (hiç dosyan yokken)</h3>
+<ol>
+<li>Tarayıcıda (Chrome, Edge ya da Firefox) <a href="https://salihtatci.github.io/fazPPP/">https://salihtatci.github.io/fazPPP/</a> adresini aç.</li>
+<li>Giriş ekranındaki <strong>Örnek veriyle dene</strong> düğmesine bir kez tıkla. Başka hiçbir şeye dokunma.</li>
+<li>Program ISTA dosyalarını kutulara yerleştirir, epoğu 13:15:00 yapar, referans koordinatı (ITRF2014) doldurur ve hesabı kendisi başlatır.</li>
+<li>İlk açılışta Hesapla düğmesinin yanında "Python ortamı indiriliyor" yazar. Bu 10–20 saniye sürer ve sadece ilk seferde olur. Bekle.</li>
+<li>Ardından düğmenin altında hesap adımları listesi çıkar. Sıradaki adım vurgulanır, bitenler yeşil olur.</li>
+<li>Hesap yaklaşık 4 saniyede biter ve sayfa kendiliğinden <strong>Sonuçlar</strong> bölümüne kayar. Bu kadar.</li>
+</ol>
+<h3 id="b-kendi-dosyalarinla"><a class="m-anchor" href="#b-kendi-dosyalarinla" aria-hidden="true">#</a>B. Kendi dosyalarınla</h3>
+<figure class="m-fig"><a href="assets/kilavuz/02_dosyalar.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/02_dosyalar.jpg" width="1600" height="921" alt="Dosya kutuları: 1 gözlem, 2 navigasyon, 3 SP3, 4 saat (CLK), 5 meteoroloji, 6 ANTEX, 7 DCB" loading="lazy"></a><figcaption>Dosya kutuları: 1 gözlem, 2 navigasyon, 3 SP3, 4 saat (CLK), 5 meteoroloji, 6 ANTEX, 7 DCB</figcaption></figure>
+
+<ol>
+<li>Sayfada <strong>Dosyalar</strong> bölümüne in (ya da üst menüde Hesapla'ya tıkla).</li>
+<li>Gözlem dosyanı <strong>Gözlem</strong> kutusuna (1) sürükleyip bırak. Sürüklemek istemezsen kutudaki "Sürükleyip bırakın veya seçin" yazısına tıklayıp dosyayı bilgisayarından seç.</li>
+<li>SP3 dosyanı <strong>SP3 yörünge</strong> kutusuna (3) bırak. Bu ikisi zorunlu; kutularında "gerekli" yazar.</li>
+<li>Varsa navigasyon (2), saat (4) ve meteoroloji (5) dosyalarını kendi kutularına bırak.</li>
+<li>ANTEX ve DCB için <strong>Ek dosyalar</strong> yazısına tıklayıp kutuları aç (6, 7). Çoğu zaman bunları boş bırakabilirsin.</li>
+<li>Her kutu dosya alınca renk değiştirir ve dosyanın adını gösterir. Yanlış dosya koyduysan adın yanındaki <strong>Kaldır</strong>'a bas.</li>
+<li>Ayarları <a href="#b5">Bölüm 5</a>'e göre kontrol et. Emin değilsen hiçbirine dokunma; varsayılanlar çoğu veri için doğru.</li>
+<li><strong>Hesapla</strong>'ya bas ve sonuçların açılmasını bekle.</li>
+</ol>
+<p>Dosyalar yüklendikten sonra kutular şöyle görünür:</p>
+<figure class="m-fig"><a href="assets/kilavuz/04_dosyalar_dolu.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/04_dosyalar_dolu.jpg" width="1600" height="437" alt="Dosyaları alınmış kutular" loading="lazy"></a><figcaption>Dosyaları alınmış kutular</figcaption></figure>
+
+<p>Hesap sürerken Hesapla düğmesinin altında şu liste ilerler:</p>
+<figure class="m-fig"><a href="assets/kilavuz/05_adimlar.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/05_adimlar.jpg" width="1600" height="330" alt="Hesap adımları listesi" loading="lazy"></a><figcaption>Hesap adımları listesi</figcaption></figure>
+
+<p>Bilmen gereken birkaç şey:</p>
+<ul>
+<li>SP3 ve saat kutusuna birden çok dosya koyabilirsin (örneğin önceki ve sonraki günün SP3'ü). Diğer kutular tek dosya alır; birden fazla seçersen ilki kullanılır.</li>
+<li>Hesap sürerken Hesapla ve Örnek veriyle dene düğmeleri kilitlenir. İkinci kez basamazsın.</li>
+<li>Bir dosyayı değiştirip yeniden hesaplamak için sayfayı yenilemen gerekmez. Dosyayı değiştir, Hesapla'ya tekrar bas.</li>
+<li>Sayfayı yenilersen yüklediğin dosyalar ve sonuçlar silinir. Hiçbir şey kaydedilmez; saklamak istediğin sonucu <a href="#b7">Bölüm 7</a>'deki gibi indir.</li>
+</ul>
+<h2 id="b5"><a class="m-anchor" href="#b5" aria-hidden="true">#</a>5. Ayarlar tek tek</h2>
+<p>Ayarların hepsinin bir varsayılanı vardır ve çoğu veri için onlar doğrudur. Hiçbir ayarı değiştirmeden Hesapla'ya basabilirsin. Aşağıdaki resimde "Gelişmiş" açık görünüyor; normalde kapalıdır.</p>
+<figure class="m-fig"><a href="assets/kilavuz/03_ayarlar.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/03_ayarlar.jpg" width="1600" height="937" alt="Ayarlar bölümü, numaralar aşağıdaki tabloyla eşleşir" loading="lazy"></a><figcaption>Ayarlar bölümü, numaralar aşağıdaki tabloyla eşleşir</figcaption></figure>
+
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>No</th>
+<th>Ayar</th>
+<th>Varsayılan</th>
+<th>Ne yapar</th>
+<th>Ne zaman değiştirirsin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Çözüm türü</td>
+<td>Otomatik</td>
+<td><strong>Statik:</strong> bütün gün için tek konum. <strong>Kinematik:</strong> her epokta ayrı konum (rota). <strong>Otomatik:</strong> program karar verir.</td>
+<td>Alıcının sabit mi hareketli mi olduğunu kesin biliyorsan</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Uydu sistemleri</td>
+<td>GPS + Galileo</td>
+<td>Galileo ölçülerini de kullanır. Dosyada Galileo yoksa kendiliğinden yalnız GPS kullanılır.</td>
+<td>Yalnız GPS sonucu istiyorsan (örneğin ders ödevi)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Kod ölçülerine Kalman filtresi, τ</td>
+<td>Açık, 100 s</td>
+<td>Kod ölçülerinin gürültüsünü faz yardımıyla azaltır. τ büyüdükçe süzme güçlenir.</td>
+<td>Ham kodla sonuç görmek için kapat. Karşılaştırma için τ'yu 30 ya da 300 yap.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Hesap epoğu (GPS zamanı)</td>
+<td>Boş (verinin ortası)</td>
+<td>Saat, troposfer, DOP, uydu tabloları ve kinematik konum bu anda verilir. SS:DD:ss biçiminde yazılır, örneğin 13:15:00.</td>
+<td>Ödevde ya da soruda belirli bir an isteniyorsa</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Yükseklik açısı sınırı</td>
+<td>10°</td>
+<td>Ufka bundan daha yakın uydular hesaba girmez (çok yolluluk ve atmosfer hatası büyük olduğu için). 0–30° arası girilebilir.</td>
+<td>Engelli bir yerdeki istasyonda 15–20° yap; çok az uydu varsa 5°'ye indir</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Referans koordinat</td>
+<td>Boş</td>
+<td>Girdiğin X, Y, Z'ye (metre) göre her çözümün ne kadar farklı olduğu hesaplanır. Boşsa farklar statik faz çözümüne göre verilir.</td>
+<td>Doğruluğu bir "doğru" koordinatla (ITRF, IGS) sınamak istiyorsan</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Gelişmiş</td>
+<td>Kapalı</td>
+<td>Aşağıdaki altı ince ayarı açar.</td>
+<td>Ne yaptığını biliyorsan</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Hesapla</td>
+<td>–</td>
+<td>Hesabı başlatır.</td>
+<td>–</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Otomatik çözüm türü nasıl karar verir:</strong> Önce her epokta kodla kaba bir konum hesaplanır. Alıcı bu kaba çözümde 10 m'den fazla yer değiştiriyorsa kinematik seçilir. Değiştirmiyorsa statik çözülür; statik çözüm ölçülere kötü uyarsa kinematik de denenir ve belirgin biçimde daha iyiyse o alınır. Hangi yolun seçildiği Özet sekmesinde bir cümleyle yazılır.</p>
+<p><strong>Epok neden "kaydırıldı" diyor:</strong> Faz çözümü yalnızca uydu saatinin kesin bilindiği anlarda yapılır. Saat dosyası yoksa bunlar SP3 epoklarıdır (15 dk'da bir: 13:00, 13:15, 13:30…). 13:20:00 yazarsan program en yakın uygun anı kullanır ve bunu uyarı olarak söyler.</p>
+<p><strong>Referans koordinatı nasıl yazarsın:</strong> Üç kutuya metre cinsinden, ondalık için nokta ya da virgül kullanarak yaz: 4208830.1293. Üçünden biri boşsa referans hiç kullanılmaz. Örnek veri düğmesi bu kutuları doldurur; kendi dosyana geçince bunları silmeyi ya da kendi istasyonunun koordinatıyla değiştirmeyi unutma, yoksa farklar ISTA'ya göre hesaplanır.</p>
+<h3 id="gelismis-ayarlar"><a class="m-anchor" href="#gelismis-ayarlar" aria-hidden="true">#</a>Gelişmiş ayarlar</h3>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Ayar</th>
+<th>Varsayılan</th>
+<th>Ne yapar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Faz ölçü doğruluğu (m)</td>
+<td>0,01</td>
+<td>Faz ölçülerinin ağırlığını belirler. Küçüldükçe faz daha çok önemsenir.</td>
+</tr>
+<tr>
+<td>Kod ölçü doğruluğu (m)</td>
+<td>1,0</td>
+<td>Kod ölçülerinin ağırlığını belirler.</td>
+</tr>
+<tr>
+<td>Islak troposfer parametre aralığı (saat)</td>
+<td>2</td>
+<td>Islak troposferin her kaç saatte bir yeniden kestirileceği. Hava hızlı değişiyorsa 1 yap.</td>
+</tr>
+<tr>
+<td>Kod çözümü aralığı (s)</td>
+<td>300</td>
+<td>Kod ile tek nokta konumunun kaç saniyede bir hesaplanacağı.</td>
+</tr>
+<tr>
+<td>İşlem aralığı (s)</td>
+<td>Boş (otomatik)</td>
+<td>Faz çözümünün kaç saniyede bir yapılacağı. Boşsa saat dosyasının aralığı, o da yoksa SP3 aralığı kullanılır.</td>
+</tr>
+<tr>
+<td>En kısa yay (dakika)</td>
+<td>Boş (otomatik)</td>
+<td>Bundan kısa kesintisiz izleme parçaları hesaba girmez. Normalde 10 dk; kısa dosyalarda program kendisi düşürür.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="b6"><a class="m-anchor" href="#b6" aria-hidden="true">#</a>6. Sonuç sekmeleri</h2>
+<p>Hesap bitince Sonuçlar bölümü açılır. Üstte sekmeler vardır; birine tıklayınca altındaki içerik değişir. <strong>Önce Özet sekmesine bak:</strong> aslında sorulan şey (istasyonun konumu) oradadır. Diğer sekmeler o sonuca nasıl varıldığını adım adım gösterir.</p>
+<p>Aşağıdaki bütün ekran görüntüleri "Örnek veriyle dene" sonucundan alındı (ISTA, 28.08.2014, epok 13:15:00).</p>
+<p>Her sekmede ortak olan üç şey:</p>
+<ul>
+<li><strong>CSV düğmesi:</strong> Her tablonun sağ üstünde bulunur ve o tabloyu Excel'de açılabilir bir dosya olarak indirir.</li>
+<li><strong>Grafikler:</strong> Fareyi bir noktanın üzerine getirince değerini gösterir. Fareyle bir alan seçersen o alana yakınlaşır; çift tıklayınca eski hale döner. Grafiğin altındaki açıklama kısmında (lejant) bir isme tıklarsan o seri gizlenir.</li>
+<li><strong>Turuncu kesikli çizgi:</strong> Grafiklerde seçtiğin hesap epoğunu gösterir.</li>
+</ul>
+<h3 id="ozet"><a class="m-anchor" href="#ozet" aria-hidden="true">#</a>Özet</h3>
+<figure class="m-fig"><a href="assets/kilavuz/06_sonuclar_ozet.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/06_sonuclar_ozet.jpg" width="1600" height="1715" alt="Özet sekmesi: 1 PDF, 2 JSON, 3 sekmeler, 4 hesap süresi" loading="lazy"></a><figcaption>Özet sekmesi: 1 PDF, 2 JSON, 3 sekmeler, 4 hesap süresi</figcaption></figure>
+
+<p>Resimdeki numaralar: (1) bütün sonuçların PDF raporu, (2) ham sonuç dosyası JSON, (3) sekmeler, (4) hesabın kaç saniye sürdüğü.</p>
+<ul>
+<li><strong>Sol üst kutu, statik faz çözümü:</strong> İstasyonun bütün günün verisiyle bulunan konumu. Bu, programın asıl cevabıdır. Her koordinatın yanındaki "± 2,2 mm" o koordinatın standart sapmasıdır. Altında aynı nokta enlem (φ), boylam (λ) ve elipsoit yüksekliği (h) olarak yazar.</li>
+<li><strong>Kinematik faz çözümü:</strong> Yalnız seçtiğin epoktaki ayrı konum. Bir anlık veriyle bulunduğu için statikten daha az kesindir (burada ± 6–11 mm). Alt satırdaki "Kinematik − statik" ikisinin farkıdır.</li>
+<li><strong>Sağ kutu:</strong> Alıcı saat hatası (nanosaniye ve metre karşılığı), zenit troposfer gecikmesi (ZTD; yanında karşılaştırma için Saastamoinen model değeri) ve DOP değerleri. DOP'lar uydu geometrisinin ne kadar iyi olduğunu söyler; 1'e yakın iyi, 5'in üstü kötüdür.</li>
+<li><strong>Çözümlerin karşılaştırması tablosu:</strong> Programın yaptığı bütün çözümler alt alta. ΔN kuzey, ΔE doğu, ΔU yukarı yönündeki farktır; Yatay ve 3B toplam uzaklıktır. Hepsi metre ve referans koordinata göre. Örnekte "L3 faz, statik" satırı 3B 0,012 m, yani ITRF koordinatından 1,2 cm uzakta. "Kod (P3), tek epok" ise 2,8 m. Fazla kod arasındaki farkı bu tablo gösterir.</li>
+<li><strong>Uyarılar:</strong> Eksik dosya ya da programın yaptığı bir varsayım buraya yazılır. Hata değildir ama mutlaka oku; örneğin "DCB dosyası yok; uydu DCB'leri veriden kestirildi" demek, o değerin dosyadan değil hesaptan geldiği demektir.</li>
+</ul>
+<p>Kinematik çözüm seçildiyse (hareketli alıcı) Özet'ten hemen sonra bir <strong>Kinematik rota</strong> sekmesi gelir. Orada yatay rota haritası, zamana göre N/E/U farkları, standart sapmalar, uydu sayısı ve PDOP grafikleri ile her epoğun konumunu veren tablo bulunur. Tablo en çok 400 satır gösterir; CSV bütün epokları içerir.</p>
+<h3 id="veri-ve-on-isleme"><a class="m-anchor" href="#veri-ve-on-isleme" aria-hidden="true">#</a>Veri ve ön işleme</h3>
+<p>Gözlem dosyasının doğru okunup okunmadığını ve verinin hesaptan önce nasıl temizlendiğini gösterir.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_pre.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_pre.jpg" width="1600" height="2369" alt="Veri ve ön işleme sekmesi" loading="lazy"></a><figcaption>Veri ve ön işleme sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Dosya bilgileri:</strong> Alıcı ve anten modeli, başlıktaki yaklaşık konum, anten yüksekliği, RINEX sürümü, ölçü tipleri, kayıt aralığı, ilk ve son epok. Burada tuhaf bir şey (yanlış tarih, 0 anten yüksekliği) görürsen yanlış dosya yüklemiş olabilirsin.</li>
+<li><strong>Ön işleme sayıları:</strong> Toplam kayıt (bir uydunun bir epoktaki ölçüsü bir kayıttır), donmuş (değişmeden tekrarlanan) kayıtlar, eksik ölçülü kayıtlar, yay sayısı ve kullanılabilir yaylar, kaba hatalı kayıtlar. <strong>Yay</strong>, bir uydunun kesintisiz izlendiği süredir. Faz kopması ya da boşluk olunca yay biter, yenisi başlar.</li>
+<li><strong>Alıcı saati sıçramaları tablosu:</strong> Bazı alıcılar saatlerini zaman zaman tam 1 milisaniye düzeltir. Bu, bütün uydularda aynı anda yaklaşık 299 792 m'lik bir sıçrama olarak görünür. Program bunları bulup faza geri ekler. ISTA'da gün boyunca 10 tane var.</li>
+<li><strong>Seçilen epoktaki uyduların yayları:</strong> O anda görülen her uydunun yayının ne zaman başlayıp bittiği ve hesaba girip girmediği. "Kullanıldı: hayır" genelde yayın çok kısa ya da uydunun çok alçakta olduğu anlamına gelir.</li>
+<li><strong>Grafikler:</strong> Soldaki "ham λ₁L1 − P1" grafiğindeki basamaklar saat sıçramalarıdır. Sağdaki düzeltilmiş grafikte basamaklar kaybolur ve yalnız iyonosferin yavaş değişimi kalır. En alttaki GF ve MW grafikleri faz kopması testinin kullandığı kombinasyonlardır; düzgün eğriler kopma olmadığını, ani bir sıçrama kopma olduğunu gösterir.</li>
+</ul>
+<h3 id="kalman-filtresi"><a class="m-anchor" href="#kalman-filtresi" aria-hidden="true">#</a>Kalman filtresi</h3>
+<p>Ayarlarda Kalman filtresi açıksa (varsayılan) bu sekme görünür. Kod ölçülerinin filtreyle ne kadar iyileştiğini gösterir.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_kf.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_kf.jpg" width="1600" height="2369" alt="Kalman filtresi sekmesi" loading="lazy"></a><figcaption>Kalman filtresi sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Üstteki yazı ve denklemler:</strong> Filtrenin ne yaptığının kısa anlatımı. Basitçe: kod ölçüsü metre düzeyinde gürültülüdür ama belirsizliği yoktur; faz milimetre düzeyinde temizdir ama bilinmeyen bir sabit içerir. Filtre, kodun epoktan epoğa ne kadar değişeceğini fazdan öğrenir ve kodu buna göre yumuşatır.</li>
+<li><strong>Sayılar:</strong> Örnekte P1 gürültüsü 0,578 m'den 0,271 m'ye iner (%53 azalma), P2'ninki %57 azalır. "Faz çözümüne etkisi" ise sadece birkaç milimetrenin onda biridir; filtre asıl olarak kod çözümünü iyileştirir.</li>
+<li><strong>Kod − faz (CMC) grafiği:</strong> Gri dağınık noktalar ham kod gürültüsü, düzgün çizgi süzülmüş kod. Çizgi ne kadar düzgünse filtre o kadar iyi çalışıyor.</li>
+<li><strong>Kalman kazancı grafiği:</strong> Yay başında K = 1'dir (filtre ham koda güvenir), zamanla Δt/τ değerine (burada 0,3) iner. σ da buna paralel azalır.</li>
+<li>
+<p><strong>Uydu başına gürültü tablosu ve grafiği:</strong> Her uydu için ham ve süzülmüş gürültü ile kaç kod ölçüsünün aykırı diye atıldığı.</p>
+</li>
+<li>
+<p><strong>Kod çözümü − faz çözümü grafiği:</strong> Kodla bulunan konumun faz çözümünden yatayda ne kadar uzak olduğu; gri ham kodla, renkli süzülmüş kodla.</p>
+</li>
+</ul>
+<h3 id="uydular"><a class="m-anchor" href="#uydular" aria-hidden="true">#</a>Uydular</h3>
+<p>Seçilen epokta her uydunun konumu ve saati.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_orbit.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_orbit.jpg" width="1600" height="1410" alt="Uydular sekmesi" loading="lazy"></a><figcaption>Uydular sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Tablo:</strong> Her uydunun X, Y, Z koordinatı (sinyali gönderdiği andaki), sinyalin yolda geçirdiği süre τ (yaklaşık 70–80 ms), uydu saat hatası, rölativistik düzeltme, Dünya dönüşü etkisi, yükseklik ve azimut açısı.</li>
+<li><strong>Kaba kontrol:</strong> Kod ölçüsünden uzaklık çıkarılınca geriye alıcı saati ve atmosfer kalmalıdır. Uydular arasındaki yayılım düzeltme eklendikçe küçülmelidir (örnekte 12,7 m → 8,8 m → 1,9 m). Küçülmüyorsa SP3 dosyası yanlış gündendir ya da gözlemle uyuşmuyordur.</li>
+<li><strong>Gökyüzü grafiği:</strong> Uyduların gökteki izleri, seçilen epoktaki konumları nokta olarak.</li>
+</ul>
+<h3 id="troposfer"><a class="m-anchor" href="#troposfer" aria-hidden="true">#</a>Troposfer</h3>
+<p>Atmosferin alt katmanının sinyali ne kadar geciktirdiği.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_atm.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_atm.jpg" width="1600" height="1376" alt="Troposfer sekmesi" loading="lazy"></a><figcaption>Troposfer sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Meteoroloji:</strong> Kullanılan basınç, sıcaklık ve nem; yanında "ölçülen" (dosyadan) ya da "standart atmosfer" yazar.</li>
+<li><strong>ZHD, ZWD, ZTD:</strong> Başucu doğrultusunda kuru, ıslak ve toplam gecikme (metre). Tipik ZTD 2,3–2,6 m'dir.</li>
+<li><strong>Tablo:</strong> Her uydu için eşleme fonksiyonları (m_h, m_w) ve eğik yoldaki toplam gecikme T. Alçak uydularda gecikme çok büyür (5,8°'deki G26'da 22 m).</li>
+<li><strong>Grafikler:</strong> Eğik gecikmenin yükseklik açısıyla değişimi ve katı yer gelgitinin gün içindeki düşey hareketi (cm).</li>
+</ul>
+<h3 id="duzeltmeler"><a class="m-anchor" href="#duzeltmeler" aria-hidden="true">#</a>Düzeltmeler</h3>
+<p>Küçük ama santimetre doğruluğu için şart olan düzeltmeler: anten, gelgit, Shapiro, faz sarılması.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_corr.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_corr.jpg" width="1600" height="844" alt="Düzeltmeler sekmesi" loading="lazy"></a><figcaption>Düzeltmeler sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Alıcı anteni L3 PCO:</strong> Antenin elektriksel merkezinin fiziksel referans noktasından ne kadar uzakta olduğu (örnekte yukarı 47 mm).</li>
+<li><strong>"Bu düzeltmeler uygulanmasaydı...":</strong> En öğretici satır. Bu düzeltmeler olmasa statik konum yukarı yönde 8 cm kayardı.</li>
+<li><strong>Tablo:</strong> Seçilen epokta her uydu için her düzeltmenin milimetre cinsinden değeri ve toplamı.</li>
+</ul>
+<h3 id="faz-cozumu"><a class="m-anchor" href="#faz-cozumu" aria-hidden="true">#</a>Faz çözümü</h3>
+<p>Konumun bulunduğu en küçük kareler hesabının ayrıntıları.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_l3.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_l3.jpg" width="1600" height="1624" alt="Faz çözümü sekmesi" loading="lazy"></a><figcaption>Faz çözümü sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>Çözüm türü:</strong> Statik mi kinematik mi çözüldüğü, otomatik seçildiyse bu da yazar.</li>
+<li><strong>Ölçü / bilinmeyen:</strong> Kaç ölçüyle kaç bilinmeyen çözüldüğü (örnekte 1536 ölçü, 161 bilinmeyen).</li>
+<li><strong>s₀ (birim ağırlıklı standart sapma):</strong> Modelin ölçülere ne kadar uyduğunu söyler. 1 civarı ya da altı iyidir; 3'ün üstü bir şeylerin ters gittiğini gösterir.</li>
+<li><strong>Düzeltme RMS (faz / kod):</strong> Ölçülerle modelin ortalama farkı. Faz için 1–2 cm normaldir.</li>
+<li><strong>Artığa dayalı ayıklama:</strong> Çözümden sonra büyük artık veren ölçüler bulunup çıkarılır ya da yay bölünür, sonra çözüm tekrarlanır. Kaç tane yapıldığı burada yazar.</li>
+<li><strong>Grafikler:</strong> Faz düzeltmeleri (zamana karşı, sıfır etrafında dağılmalı), kestirilen alıcı saati ve ıslak troposfer düzeltmesi.</li>
+</ul>
+<h3 id="iyonosfer"><a class="m-anchor" href="#iyonosfer" aria-hidden="true">#</a>İyonosfer</h3>
+<p>Atmosferin üst katmanındaki elektron miktarı (TEC) ve kod gecikmeleri (DCB).</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_iono.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_iono.jpg" width="1600" height="1992" alt="İyonosfer sekmesi" loading="lazy"></a><figcaption>İyonosfer sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>VTEC:</strong> İstasyonun tam üstündeki düşey toplam elektron içeriği, TECU biriminde. Örnekte 19,7 TECU; gündüz yüksek, gece düşüktür.</li>
+<li><strong>Alıcı DCB, uydu DCB'leri:</strong> Alıcı ve uydu donanımının P1 ile P2 arasında yarattığı sabit gecikme farkı. DCB dosyası yüklediysen uydu değerleri dosyadan, yüklemediysen veriden kestirilir.</li>
+<li><strong>Tablo:</strong> Her uydu için iyonosfer delme noktası (IPP) konumu, eğik (STEC) ve düşey (VTEC) elektron içeriği ve L1, L2 iyonosfer gecikmesi (metre).</li>
+<li><strong>Grafikler:</strong> Gün boyunca VTEC ve koda seviyelenmiş faz. Altta seçilen epoktaki P1, P2, P3, L1, L2, L3 değerlerinin tablosu var.</li>
+</ul>
+<h3 id="tek-frekans"><a class="m-anchor" href="#tek-frekans" aria-hidden="true">#</a>Tek frekans</h3>
+<p>Yalnız L1 (ya da L2) fazıyla çözüm yapılırsa ne olacağını gösterir. İyonosfer bu durumda düzeltilmezse konum metrelerce kayar.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_single.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_single.jpg" width="1600" height="521" alt="Tek frekans sekmesi" loading="lazy"></a><figcaption>Tek frekans sekmesi</figcaption></figure>
+
+<p>Navigasyon dosyasında Klobuchar katsayıları varsa Klobuchar modeliyle düzeltilmiş L1 ve L2 çözümleri de çıkar. ISTA'nın navigasyon dosyasında bu katsayılar yok; bu yüzden yalnız düzeltmesiz L1 var ve 2,3 m hatalı. Aynı tabloda karşılaştırma için L3 çözümü de yer alıyor.</p>
+<h3 id="cok-yolluluk"><a class="m-anchor" href="#cok-yolluluk" aria-hidden="true">#</a>Çok yolluluk</h3>
+<p>Kod ölçülerinin binalardan, zeminden yansıyarak gelen sinyallerden ne kadar etkilendiği.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_mp.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_mp.jpg" width="1600" height="1359" alt="Çok yolluluk sekmesi" loading="lazy"></a><figcaption>Çok yolluluk sekmesi</figcaption></figure>
+
+<ul>
+<li><strong>MP1, MP2:</strong> Kod ölçüsünden fazı çıkarıp yay ortalamasını atınca kalan, yani kod çok yolluluğu ve gürültüsü. Bu analiz ham kodla yapılır, Kalman filtresinden etkilenmez.</li>
+<li><strong>Yükseklik açısına göre RMS tablosu:</strong> En öğretici kısım. Ufka yakın uydularda (0–10°) 1,3 m olan değer, başucuna yakın uydularda (60–90°) 0,13 m'ye iner. Yükseklik açısı sınırının nedeni budur.</li>
+<li><strong>Grafikler:</strong> MP1 ve MP2'nin yükseklik açısıyla dağılımı ve her uydunun günlük RMS'i.</li>
+</ul>
+<h3 id="kod-cozumu"><a class="m-anchor" href="#kod-cozumu" aria-hidden="true">#</a>Kod çözümü</h3>
+<p>Faz kullanmadan, yalnız kodla (P3) her epokta ayrı ayrı yapılan klasik tek nokta konumu. Faz çözümünün ne kadar daha iyi olduğunu görmek için vardır.</p>
+<figure class="m-fig"><a href="assets/kilavuz/07_spp.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/07_spp.jpg" width="1600" height="1014" alt="Kod çözümü sekmesi" loading="lazy"></a><figcaption>Kod çözümü sekmesi</figcaption></figure>
+
+<p>Navigasyon dosyası yüklediysen uydu konumları yayın efemerisinden, yüklemediysen SP3'ten alınır. Seçilen epoktaki konum, gün ortalaması ve epok çözümlerinin 3B RMS'i (örnekte 2,2 m) verilir. Grafik her epoktaki N, E, U farkını gösterir.</p>
+<h2 id="b7"><a class="m-anchor" href="#b7" aria-hidden="true">#</a>7. Sonuçları indirme</h2>
+<p>Sayfayı kapatınca ya da yenileyince sonuçlar silinir. Saklamak için üç yol var:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Düğme</th>
+<th>Nerede</th>
+<th>Ne indirir</th>
+<th>Dosya adı</th>
+<th>Kim için</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tüm sonuçları indir (PDF)</td>
+<td>Sonuçlar başlığının sağı, sarı düğme</td>
+<td>Bütün sekmeler, tablolar ve grafiklerle tek bir rapor</td>
+<td>fazppp_ISTA_131500.pdf</td>
+<td>Herkes; ödeve ya da rapora eklemek için</td>
+</tr>
+<tr>
+<td>JSON</td>
+<td>PDF düğmesinin yanı</td>
+<td>Bütün sayısal sonuçlar, tek dosyada, makine okunur biçimde</td>
+<td>fazppp_ISTA_131500.json</td>
+<td>Sonuçlarla kendi programında (Python, MATLAB) çalışacak olan</td>
+</tr>
+<tr>
+<td>CSV</td>
+<td>Her tablonun sağ üstü</td>
+<td>Yalnız o tablo</td>
+<td>tablonun adı.csv</td>
+<td>Excel'de grafik ya da tablo yapacak olan</td>
+</tr>
+</tbody>
+</table></div>
+<p>Dosya adındaki ISTA istasyon adı, 131500 ise hesap epoğudur (13:15:00).</p>
+<p><strong>PDF nasıl alınır:</strong></p>
+<ol>
+<li>Hesabın bitmesini bekle.</li>
+<li>Sayfada önce raporun hangi dilde olmasını istediğini seç (üstteki TR / EN). PDF ekrandaki dilde çıkar.</li>
+<li><strong>Tüm sonuçları indir (PDF)</strong> düğmesine bas.</li>
+<li>Düğmenin yazısı "PDF hazırlanıyor…" olur. 10 saniye kadar bekle; bu sırada başka bir şeye basma.</li>
+<li>Dosya tarayıcının İndirilenler klasörüne kaydedilir.</li>
+</ol>
+<p>PDF'in ilk sayfasında yüklediğin dosyaların adları, kullandığın ayarlar ve raporun oluşturulma zamanı yazar. Sonra her sekme sırayla gelir. Her sayfanın altında sayfa numarası vardır. ISTA örneğinde rapor 15 sayfa civarındadır.</p>
+<p>PDF ilk kez oluşturulurken gereken kütüphane internetten indirildiği için internet bağlantısı açık olmalıdır.</p>
+<h2 id="b8"><a class="m-anchor" href="#b8" aria-hidden="true">#</a>8. Perde arkası: Hesapla'ya basınca hangi dosyada ne yapılıyor</h2>
+<p>Bu bölüm kodu okumak ya da değiştirmek isteyenler için. Kaynak kod GitHub'da: <a href="https://github.com/salihtatci/fazPPP">github.com/salihtatci/fazPPP</a>. Program iki dille yazılmış: ekranı JavaScript, hesabın tamamını Python (yalnız numpy) yapar. Python, Pyodide sayesinde tarayıcının içinde çalışır; sunucu yoktur.</p>
+<figure class="m-fig m-arch">
+<svg viewBox="0 0 760 464" role="img" aria-label="Ekran JavaScript'te, hesabın tamamı tarayıcıdaki Python'da">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="a-head"/></marker></defs>
+<text x="24" y="30" class="a-title">Ekran JavaScript'te, hesabın tamamı tarayıcıdaki Python'da</text>
+<g class="a-line"><path d="M240 92H270" marker-end="url(#arch-arrow)"/><path d="M488 92H518" marker-end="url(#arch-arrow)"/><path d="M628 128V174" marker-end="url(#arch-arrow)"/><path d="M132 176V130" marker-end="url(#arch-arrow)"/><path d="M380 232V262" marker-end="url(#arch-arrow)"/></g>
+<text x="616" y="156" text-anchor="end" class="a-q">dosyalar + ayarlar (JSON)</text>
+<text x="144" y="156" class="a-q">sonuç (JSON): sekmeler, grafikler, PDF</text>
+<rect x="24" y="56" width="216" height="72" rx="8" class="a-box"/><text x="36" y="80" class="a-n">Ekran (tarayıcı)</text><text x="36" y="96" class="a-q">index.html, app.js, i18n.js</text><text x="36" y="112" class="a-q">dosyayı açar, ayarları toplar</text>
+<rect x="272" y="56" width="216" height="72" rx="8" class="a-box"/><text x="284" y="80" class="a-n">worker.js</text><text x="284" y="96" class="a-q">Pyodide ve numpy'ı yükler</text><text x="284" y="112" class="a-q">hesap sırasında sayfa donmaz</text>
+<rect x="520" y="56" width="216" height="72" rx="8" class="a-box"/><text x="532" y="80" class="a-n">web_entry.py</text><text x="532" y="96" class="a-q">JSON alır, run() çağırır</text><text x="532" y="112" class="a-q">sonucu JSON döndürür</text>
+<rect x="24" y="176" width="712" height="56" rx="8" class="a-box a-main"/><text x="36" y="200" class="a-n">pipeline.py · run()</text><text x="36" y="216" class="a-t">okuma → ön işleme → Kalman → uydu → troposfer → düzeltmeler → faz EKK → iyonosfer → tek frekans → MP → SPP</text>
+<rect x="24" y="264" width="712" height="176" rx="8" class="a-pack"/><text x="40" y="288" class="a-n">py/gnssfaz paketi (yalnız numpy)</text>
+<rect x="40" y="296" width="158" height="56" rx="8" class="a-box"/><text x="52" y="320" class="a-n">readers.py</text><text x="52" y="336" class="a-q">dosya okuyucular</text>
+<rect x="214" y="296" width="158" height="56" rx="8" class="a-box"/><text x="226" y="320" class="a-n">crinex.py</text><text x="226" y="336" class="a-q">Hatanaka açıcı</text>
+<rect x="388" y="296" width="158" height="56" rx="8" class="a-box"/><text x="400" y="320" class="a-n">preprocess.py</text><text x="400" y="336" class="a-q">kopma, yay, sıçrama</text>
+<rect x="562" y="296" width="158" height="56" rx="8" class="a-box"/><text x="574" y="320" class="a-n">codefilter.py</text><text x="574" y="336" class="a-q">kod Kalman filtresi</text>
+<rect x="40" y="368" width="158" height="56" rx="8" class="a-box"/><text x="52" y="392" class="a-n">orbit.py</text><text x="52" y="408" class="a-q">SP3, yayın efemerisi</text>
+<rect x="214" y="368" width="158" height="56" rx="8" class="a-box"/><text x="226" y="392" class="a-n">corrections.py</text><text x="226" y="408" class="a-q">düzeltme modelleri</text>
+<rect x="388" y="368" width="158" height="56" rx="8" class="a-box"/><text x="400" y="392" class="a-n">estimate.py</text><text x="400" y="408" class="a-q">EKK, SPP, DOP</text>
+<rect x="562" y="368" width="158" height="56" rx="8" class="a-box"/><text x="574" y="392" class="a-n">yardımcılar</text><text x="574" y="408" class="a-q">geo, timeutil, const</text>
+</svg>
+<figcaption>FazPPP'nin parçaları: ekran, worker ve Python paketi.</figcaption>
+</figure>
+
+<p>Sol üstteki ekran dosyaları ve ayarları Worker'a verir; hesabı Python paketi yapar ve sonuç JSON olarak ekrana döner.</p>
+<h3 id="b8-1"><a class="m-anchor" href="#b8-1" aria-hidden="true">#</a>8.1 Dosyalar ve görevleri</h3>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Dosya</th>
+<th>Dil</th>
+<th>Görevi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>index.html</td>
+<td>HTML</td>
+<td>Sayfanın iskeleti: kutular, ayar alanları, düğmeler, boş sonuç alanı</td>
+</tr>
+<tr>
+<td>assets/style.css</td>
+<td>CSS</td>
+<td>Görünüm: renkler, yazı tipleri, koyu tema, telefon uyumu</td>
+</tr>
+<tr>
+<td>assets/i18n.js</td>
+<td>JavaScript</td>
+<td>Ekrandaki bütün yazıların Türkçe ve İngilizce karşılıkları ve hata mesajları</td>
+</tr>
+<tr>
+<td>assets/app.js</td>
+<td>JavaScript</td>
+<td>Ekranın beyni: dosyaları okur ve açar (.gz, .Z), ayarları toplar, hesabı başlatır, sonuç sekmelerini, tabloları, grafikleri ve PDF'i üretir</td>
+</tr>
+<tr>
+<td>worker.js</td>
+<td>JavaScript</td>
+<td>Ayrı iş parçacığı (Web Worker). Pyodide'i ve numpy'ı yükler, Python kodunu tarayıcının sanal diskine yazar, hesabı çağırır. Hesap sürerken sayfa donmasın diye ayrıdır.</td>
+</tr>
+<tr>
+<td>py/web_entry.py</td>
+<td>Python</td>
+<td>Köprü: JavaScript'ten gelen JSON metni alır, hesabı çağırır, sonucu ya da hatayı JSON olarak geri verir</td>
+</tr>
+<tr>
+<td>py/cli.py</td>
+<td>Python</td>
+<td>Aynı hesabı tarayıcı olmadan, komut satırından çalıştırır (<a href="#b10">Bölüm 10</a>)</td>
+</tr>
+<tr>
+<td>py/gnssfaz/pipeline.py</td>
+<td>Python</td>
+<td>Hesabın yöneticisi. <code>run()</code> fonksiyonu bütün adımları sırayla çağırır ve sonuç sözlüğünü kurar</td>
+</tr>
+<tr>
+<td>py/gnssfaz/readers.py</td>
+<td>Python</td>
+<td>Dosya okuyucular: <code>read_obs</code>, <code>read_nav</code>, <code>read_met</code>, <code>read_sp3</code>, <code>read_clk</code>, <code>read_antex</code>, <code>read_dcb</code></td>
+</tr>
+<tr>
+<td>py/gnssfaz/crinex.py</td>
+<td>Python</td>
+<td>Hatanaka sıkıştırmalı gözlem dosyasını açar (<code>crx2rnx</code>)</td>
+</tr>
+<tr>
+<td>py/gnssfaz/preprocess.py</td>
+<td>Python</td>
+<td>Ön işleme: donmuş kayıtlar, saat sıçramaları, GF/MW/LLI ile faz kopması, yaylar (<code>preprocess</code>)</td>
+</tr>
+<tr>
+<td>py/gnssfaz/codefilter.py</td>
+<td>Python</td>
+<td>Kod ölçülerine Kalman filtresi (<code>kalman_code_filter</code>) ve gürültü istatistikleri</td>
+</tr>
+<tr>
+<td>py/gnssfaz/orbit.py</td>
+<td>Python</td>
+<td>SP3 Lagrange ara değerlemesi (<code>sp3_interp</code>, <code>sp3_clock</code>) ve yayın efemerisi (<code>bc_position</code>, <code>bc_clock</code>)</td>
+</tr>
+<tr>
+<td>py/gnssfaz/corrections.py</td>
+<td>Python</td>
+<td>Modeller: Saastamoinen, Herring, Klobuchar, alıcı ve uydu anteni, katı yer gelgiti, Shapiro, faz sarılması</td>
+</tr>
+<tr>
+<td>py/gnssfaz/estimate.py</td>
+<td>Python</td>
+<td>En küçük kareler: faz + kod çözümü (<code>phase_solution</code>), kod tek nokta konumu (<code>spp_epoch</code>), DOP (<code>dop</code>)</td>
+</tr>
+<tr>
+<td>py/gnssfaz/geo.py</td>
+<td>Python</td>
+<td>Koordinat işleri: XYZ ↔ enlem/boylam, N-E-U dönüşü, yükseklik/azimut, Güneş ve Ay konumu</td>
+</tr>
+<tr>
+<td>py/gnssfaz/timeutil.py, const.py</td>
+<td>Python</td>
+<td>GPS zamanı dönüşümleri; ışık hızı, frekanslar, Dünya dönüş hızı gibi sabitler</td>
+</tr>
+<tr>
+<td>data/igs08.atx.gz, data/igs20.atx.gz</td>
+<td>veri</td>
+<td>Gömülü anten kalibrasyonları</td>
+</tr>
+<tr>
+<td>examples/ista_2014_240/</td>
+<td>veri</td>
+<td>Örnek ISTA dosyaları</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="b8-2"><a class="m-anchor" href="#b8-2" aria-hidden="true">#</a>8.2 Bir hesap baştan sona: düğmeden ekrana</h3>
+<ol>
+<li><strong>Düğmeye basılır (app.js, <code>run</code>):</strong> Zorunlu iki dosya var mı diye bakılır. Ayarlar <code>params()</code> ile toplanır. Dosyaların metni ve ayarlar Worker'a mesaj olarak gönderilir.</li>
+<li><strong>Dosyalar daha önce açılmıştır (app.js, <code>readFileText</code>):</strong> Kullanıcı dosyayı kutuya bıraktığı anda .gz ve .Z açılıp düz metne çevrilir.</li>
+<li><strong>Python ortamı hazırlanır (worker.js, <code>boot</code>):</strong> İlk seferde Pyodide ve numpy indirilir, <code>py/manifest.json</code>'daki Python dosyaları ve gömülü ANTEX dosyaları sanal diske yazılır.</li>
+<li><strong>Hesap çağrılır (web_entry.py, <code>run_json</code>):</strong> Gelen JSON çözülür ve <code>pipeline.run()</code> çağrılır. Her adım başladığında <code>progress</code> fonksiyonu ekrana haber verir; adım listesinin ilerlemesi bu sayede olur.</li>
+<li><strong>Hesap yapılır (pipeline.py, <code>run</code>):</strong> 8.3'teki 15 adım sırayla çalışır ve bütün sonuçlar tek bir sözlükte (dict) toplanır.</li>
+<li><strong>Sonuç geri döner:</strong> Sözlük JSON metnine çevrilip Worker üzerinden app.js'e gönderilir. Hata olduysa <code>{ok: false, code, message}</code> gelir; <code>code</code> i18n.js'teki <code>err.&lt;code&gt;</code> mesajıyla eşleşip kullanıcıya anlaşılır bir cümle olarak gösterilir.</li>
+<li><strong>Ekran çizilir (app.js, <code>renderResults</code>):</strong> Her sekme kendi fonksiyonuyla üretilir: <code>pSummary</code>, <code>pPre</code>, <code>pKf</code>, <code>pOrbit</code>, <code>pAtm</code>, <code>pCorr</code>, <code>pL3</code>, <code>pIono</code>, <code>pSingle</code>, <code>pMp</code>, <code>pSpp</code>, <code>pKin</code>. Grafikler Plotly ile, sekme ilk açıldığında çizilir.</li>
+<li><strong>PDF istenirse (app.js, <code>exportPdf</code>):</strong> jsPDF ve jspdf-autotable kütüphaneleri o anda indirilir, ekrandaki sekmeler sırayla dolaşılıp tablolar ve grafik resimleri PDF'e yazılır. Türkçe karakterler için DejaVu Sans yazı tipi gömülür.</li>
+</ol>
+<h3 id="b8-3"><a class="m-anchor" href="#b8-3" aria-hidden="true">#</a>8.3 Hesap zinciri adım adım (pipeline.py içinde)</h3>
+<p><code>run()</code> fonksiyonunun içinde her adım <code># ---- 4. uydu konum ve saati</code> gibi numaralı bir yorum satırıyla başlar. Koddaki yorum numaraları aşağıdaki sırayla birebir aynı değildir (sonradan eklenen adımlar 2b, 7b gibi numaralandı), bu yüzden her adımın yanında koddaki yorum numarası da yazıyor. Kodda aramak için o numarayı ya da yorumdaki kelimeyi (örneğin "uydu konum") arat.</p>
+<ol>
+<li><strong>Okuma (kodda 1).</strong> Ekranda: "Dosyaları okuma". <code>readers.py</code> fonksiyonlarıyla bütün dosyalar okunur. ANTEX yüklenmediyse gözlem tarihine göre gömülü dosya seçilir (<code>_load_atx</code>). Eksik dosyalar ve SP3/CLK kapsamı kontrol edilip uyarı listesine eklenir. CLK ile SP3'ün uydu saatleri karşılaştırılır (<code>_clk_sp3_check</code>).</li>
+<li><strong>Ön işleme (kodda 2).</strong> Ekranda: "Ön işleme". <code>preprocess.preprocess()</code> çağrılır. Sırayla: (a) P2/L2 değeri önceki epokla birebir aynı kalmış (donmuş) kayıtlar atılır; (b) bütün uydularda aynı anda Δ(P1 − λ₁L1) ≈ k · 299 792 m sıçraması aranır, bulunursa faza k · 1 575 420 (L1) ve k · 1 227 600 (L2) devir eklenir; (c) GF ve MW kombinasyonları hesaplanır; (d) her uydu için zaman sırasında gidilir: |ΔGF| eşiği (30 s veride 10 cm) aşarsa, MW yay ortalamasından 4 devirden fazla saparsa, alıcının LLI bayrağı kalkmışsa ya da veride boşluk varsa yeni yay başlatılır. Tek epokta sıçrayıp geri dönen değer yayı bölmez, kaba hata sayılır; (e) yüksek hızlı veride (≤ 5 s) ek bir pencere testi yapılır; (f) en kısa yay süresinden kısa yaylar kullanılmaz. Dosya kısaysa en kısa yay süresi kendiliğinden düşürülür.</li>
+<li><strong>Kod ölçülerine Kalman filtresi (kodda 2b).</strong> Ekranda: "Kod ölçülerine Kalman filtresi". <code>codefilter.kalman_code_filter()</code> her uydu ve yay için P1 ve P2'yi ayrı ayrı süzer. Ham kodlar <code>P1raw</code>, <code>P2raw</code> adıyla saklanır, çözüme süzülmüş olanlar girer.</li>
+<li><strong>Yaklaşık konum (kodda 3).</strong> Ekranda ayrı adım olarak görünmez. RINEX başlığındaki konum alınır; başlıkta yoksa ya da koddan bulunan konumdan 1 km'den fazla farklıysa kod çözümü (<code>_spp_first</code>) kullanılır.</li>
+<li><strong>Uydu konumu ve saati (kodda 4).</strong> Ekranda: "Uydu konumu ve saati". Her kayıt için gönderim anı tˢ = t_r − P1/c − dtˢ bulunur. Uydu saati <code>orbit.sp3_clock()</code> ile (CLK varsa ondan), konum <code>orbit.sp3_interp()</code> ile 11 noktalı Lagrange polinomuyla hesaplanır. Rölativistik düzeltme −2 r·v/c² eklenir, Dünya dönüşü için uydu konumu ωₑτ kadar döndürülür. Yükseklik ve azimut <code>geo.elaz()</code> ile bulunur.</li>
+<li><strong>Troposfer (kodda 5).</strong> Ekranda: "Troposfer". Meteoroloji dosyası varsa değerler zamana göre ara değerlenir, yoksa standart atmosfer (<code>standard_met</code>) kullanılır. <code>saastamoinen()</code> zenit kuru ve ıslak gecikmeyi, <code>herring()</code> eşleme fonksiyonlarını verir.</li>
+<li><strong>Kombinasyonlar ve düzeltmeler (kodda 6).</strong> Ekranda: "Anten, gelgit, Shapiro, faz sarılması". L3 ve P3 iyonosferden bağımsız kombinasyonları kurulur. Uydu anteni (<code>satellite_antenna</code>), alıcı anteni (<code>receiver_antenna</code>), katı yer gelgiti (<code>solid_tide</code>), Shapiro (<code>shapiro</code>) ve faz sarılması (<code>windup_raw</code>, <code>unwrap_by_arc</code>) hesaplanıp toplanır. Faz sarılması yalnızca faza eklenir.</li>
+<li><strong>Ölçü seçimi (kodda 7).</strong> Ekranda ayrı adım olarak görünmez. İşlem aralığı belirlenir (CLK, SP3 ya da kullanıcının verdiği). Bu aralığa düşen, yükseklik sınırının üstünde, kullanılabilir yaylardaki ölçüler seçilir (<code>make_sel</code>).</li>
+<li><strong>Faz çözümü (kodda 7b/8).</strong> Ekranda: "L3 faz çözümü". Otomatik moddaysa önce <code>_motion_test</code> ile alıcının hareket edip etmediğine bakılır. Sonra <code>solve_clean()</code> çağrılır: <code>estimate.phase_solution()</code> en küçük kareler çözümünü yapar, <code>_clean_residuals()</code> artıklara bakıp kaçmış faz kopması olan yayları böler ve aykırı ölçüleri çıkarır; bu en çok 5 tur tekrarlanır. Bilinmeyenler: konum (statikte 3 tane, kinematikte her epokta 3), her epokta alıcı saati, her 2 saatte bir ıslak troposfer, Galileo varsa GPS–Galileo saat farkı ve her yay için ondalıklı belirsizlik. Epok parametreleri her epokta önceden elimine edilir, bu yüzden 1 s'lik uzun veriler de bellekte sığar. Ardından karşılaştırma için iki ek çözüm yapılır: düzeltmesiz (anten/gelgit/wind-up yok) ve ham kodlu (Kalman filtresinin etkisini görmek için).</li>
+<li><strong>Epok tabloları (kodda 9).</strong> Ekranda: "Epok tabloları". Seçilen epoktaki her uydu için Uydular, Troposfer, Düzeltmeler ve P/L tablolarının satırları hazırlanır; kaba kontrol (uydular arası yayılım) hesaplanır.</li>
+<li><strong>İyonosfer ve TEC (kodda 10).</strong> Ekranda: "İyonosfer ve TEC (GPS)". <code>_ionosphere()</code>: geometriden bağımsız faz her yayda koda seviyelenir, 450 km ince tabaka modeliyle STEC ve VTEC bulunur. Alıcı DCB'si seçilen epok ±2 saatte VTEC ile birlikte kestirilir; DCB dosyası yoksa uydu DCB'leri de toplamı sıfır koşuluyla kestirilir (<code>_estimate_sat_dcb</code>).</li>
+<li><strong>Tek frekans çözümleri (kodda 11).</strong> Ekranda: "Tek frekans çözümleri (GPS)". Aynı <code>phase_solution()</code> L1 (ve Klobuchar varsa L2) fazıyla yeniden çağrılır; iyonosfer ya düzeltilmez ya da <code>klobuchar()</code> ile düzeltilir.</li>
+<li><strong>Çok yolluluk (kodda 12).</strong> Ekranda: "Çok yolluluk (GPS)". <code>_multipath()</code> ham kodla MP1 ve MP2'yi hesaplar, yay ortalamalarını çıkarır, yükseklik açısı aralıklarına göre RMS alır.</li>
+<li><strong>Kod ile tek nokta konumu (kodda 13).</strong> Ekranda: "Kod ile tek nokta konumu (GPS)". <code>_spp_series()</code> her 300 s'de bir <code>estimate.spp_epoch()</code> ile P3 kod çözümü yapar. Kalman filtresi açıksa <code>_codefilter_report()</code> ham ve süzülmüş kodu karşılaştıran raporu hazırlar.</li>
+<li><strong>Grafikler ve özet (kodda 14 ve 15).</strong> Ekranda: "Grafikler". <code>_plots()</code> grafiklerin verilerini, kinematik çözümde <code>_kin_track()</code> rotayı hazırlar. Son olarak bütün sonuçlar <code>res</code> sözlüğünde toplanır ve geri döndürülür.</li>
+</ol>
+<h3 id="b8-4"><a class="m-anchor" href="#b8-4" aria-hidden="true">#</a>8.4 Bir şeyi değiştirmek istersen</h3>
+<ul>
+<li><strong>Yeni bir model eklemek (örneğin okyanus yüklemesi):</strong> Fonksiyonu <code>corrections.py</code>'ye yaz, <code>pipeline.py</code>'de "6. kombinasyonlar ve 4B" yorumunun altındaki <code>common</code> toplamına ekle.</li>
+<li><strong>Eşikleri değiştirmek:</strong> GF ve MW eşikleri <code>preprocess()</code> fonksiyonunun parametreleridir (<code>gf_thr</code>, <code>mw_thr</code>).</li>
+<li><strong>Ekrandaki bir yazıyı değiştirmek:</strong> <code>assets/i18n.js</code>'te ilgili anahtarı bul; Türkçe ve İngilizce karşılığını birlikte değiştir.</li>
+<li><strong>Yeni bir Python dosyası eklemek:</strong> Dosyayı <code>py/gnssfaz/</code> altına koy ve adını <code>py/manifest.json</code>'a ekle. Eklemezsen Worker onu tarayıcıya yüklemez ve import hatası alırsın.</li>
+<li><strong>Değişikliği denemek:</strong> Klasörde <code>python -m http.server</code> çalıştırıp <code>http://localhost:8000</code> adresini aç. index.html'e çift tıklamak çalışmaz, çünkü Web Worker yerel dosyadan açılmaz.</li>
+<li><strong>Yayınlamak:</strong> Dosyaları GitHub'daki repoya yükle. GitHub Pages birkaç dakika içinde siteyi günceller. Kök klasördeki <code>.nojekyll</code> dosyasını silme; silersen <code>__init__.py</code> gibi alt çizgiyle başlayan dosyalar yayınlanmaz ve site çalışmaz.</li>
+</ul>
+<h2 id="b9"><a class="m-anchor" href="#b9" aria-hidden="true">#</a>9. Python kodu satır satır</h2>
+<p>Bu bölüm hesabı yapan Python kodunu hiç Python bilmeyen birine anlatır gibi açıklar. Her alt bölümde koddan gerçek bir parça var, altında da o parçanın satır satır ne yaptığı. Kod parçaları GitHub'daki güncel sürümden (v1.3) alındı; okunur olsun diye bazı satırlar kısaltıldı ve <code>...</code> ile gösterildi.</p>
+<h3 id="b9-1"><a class="m-anchor" href="#b9-1" aria-hidden="true">#</a>9.1 Başlamadan: 5 dakikalık Python ve numpy dersi</h3>
+<p>Kodu okumak için yalnız şu birkaç şeyi bilmek yeter.</p>
+<p><strong>Yorumlar.</strong> <code>#</code> işaretinden sonraki her şey açıklamadır, bilgisayar okumaz. Üç tırnak arasındaki yazı (<code>"""..."""</code>) da fonksiyonun ne yaptığını anlatan açıklamadır. Koddaki yorumlar Türkçedir ama ç, ş, ğ gibi harfler yerine c, s, g yazılmıştır ("on isleme" = ön işleme).</p>
+<p><strong>import.</strong> Başka bir dosyadaki araçları kullanmak için çağırır.</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">import</span> numpy <span class="k">as</span> np               <span class="c"># numpy kutuphanesini &quot;np&quot; kisa adiyla kullan</span>
+<span class="k">from</span> .const <span class="k">import</span> C, F1, F2     <span class="c"># const.py dosyasindan isik hizi C ve frekanslari al</span>
+</code></pre></div>
+<p><strong>Fonksiyon (def).</strong> Bir işi yapan, adı olan kod parçasıdır. Parantez içindekiler girdileridir; <code>=</code> ile verilenler varsayılan değerlerdir. <code>return</code> sonucu geri verir.</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">def</span> preprocess(obs, gf_thr=<span class="k">None</span>, mw_thr=4.0, min_arc_sec=600.0):
+    ...                          <span class="c"># isler burada yapilir</span>
+    <span class="k">return</span> {...}                 <span class="c"># sonuc bir sozluk olarak geri verilir</span>
+</code></pre></div>
+<p>Bu satır "preprocess adında bir iş var; gözlemleri (obs) alır; GF eşiği verilmezse kendisi seçer, MW eşiği 4 devir, en kısa yay 600 saniye (10 dk)" demektir.</p>
+<p><strong>Sözlük (dict).</strong> İsimli kutulardan oluşan bir dolaptır. <code>obs["t"]</code> "obs dolabındaki t kutusunu ver" demektir. Programın neredeyse bütün verisi sözlüklerde taşınır.</p>
+<p><strong>numpy dizisi.</strong> Aynı türden sayılarla dolu uzun bir sıradır (Excel'de tek bir sütun gibi). numpy'ın en güzel yanı: bir işlemi diziye yazarsın, her elemanına birden uygulanır. Döngü gerekmez.</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">GF = lam1 * L1d - lam2 * L2d     <span class="c"># 27 000 kaydin hepsi icin GF tek satirda hesaplanir</span>
+</code></pre></div>
+<p><strong>Maske.</strong> Bir koşul yazınca her eleman için True (doğru) ya da False (yanlış) döner. Bu True/False dizisiyle istediğin kayıtları seçersin. Kodda en çok kullanılan numara budur.</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">m = prn == 29                    <span class="c"># her kayit icin: bu kayit G29'a mi ait? True / False</span>
+t[m]                             <span class="c"># yalniz G29'un zamanlari</span>
+P1[m]                            <span class="c"># yalniz G29'un P1 olculeri</span>
+ok = (el &gt;= 10) &amp; (prn == 29)    <span class="c"># &quot;&amp;&quot; = ve: G29 ve 10 derecenin ustunde</span>
+</code></pre></div>
+<p><strong>Sık göreceğin birkaç numpy aracı:</strong></p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Kod</th>
+<th>Anlamı</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>np.nan</code></td>
+<td>"değer yok" (boş hücre). Eksik ölçüler böyle tutulur.</td>
+</tr>
+<tr>
+<td><code>np.diff(x)</code></td>
+<td>Ardışık elemanların farkı: x[1]−x[0], x[2]−x[1], … (bir eksik eleman)</td>
+</tr>
+<tr>
+<td><code>np.r_[np.nan, ...]</code></td>
+<td>Başa bir eleman ekler; <code>np.diff</code> ile birlikte "bir önceki kayıtla fark" demek</td>
+</tr>
+<tr>
+<td><code>np.unique(x)</code></td>
+<td>Tekrarsız değerler (örneğin hangi uydular var)</td>
+</tr>
+<tr>
+<td><code>np.where(koşul, a, b)</code></td>
+<td>Koşul doğruysa a, değilse b</td>
+</tr>
+<tr>
+<td><code>np.median</code>, <code>np.mean</code></td>
+<td>Ortanca, ortalama</td>
+</tr>
+<tr>
+<td><code>np.linalg.norm(v)</code></td>
+<td>Vektör uzunluğu, örneğin uydu ile alıcı arasındaki uzaklık</td>
+</tr>
+<tr>
+<td><code>A @ B</code></td>
+<td>Matris çarpımı</td>
+</tr>
+<tr>
+<td><code>np.linalg.solve(N, b)</code></td>
+<td>N x = b denklem sistemini çözer (en küçük kareler)</td>
+</tr>
+<tr>
+<td><code>for i in range(n):</code></td>
+<td>i = 0'dan n−1'e kadar sırayla tekrarla</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Bu araçları küçük sayılarla görelim.</strong> Elimizde 6 kayıt olsun: ilk üçü G05'in, son üçü G07'nin ardışık üç epoğu.</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">prn = np.array([5, 5, 5, 7, 7, 7])
+L2  = np.array([100.0, 130.0, 130.0, 500.0, 520.0, 545.0])
+</code></pre></div>
+<p>Her satırın sonucunu Excel sütunu gibi yan yana yazalım:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Kod</th>
+<th>Sonuç</th>
+<th>Açıklama</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prn == 5</code></td>
+<td>[True, True, True, False, False, False]</td>
+<td>Her kayıt için "G05 mi?" sorusunun cevabı</td>
+</tr>
+<tr>
+<td><code>L2[prn == 5]</code></td>
+<td>[100, 130, 130]</td>
+<td>Yalnız G05'in L2'leri</td>
+</tr>
+<tr>
+<td><code>np.diff(L2)</code></td>
+<td>[30, 0, 370, 20, 25]</td>
+<td>130−100, 130−130, 500−130, … (5 eleman, bir eksik)</td>
+</tr>
+<tr>
+<td><code>np.r_[np.nan, np.diff(L2)]</code></td>
+<td>[nan, 30, 0, 370, 20, 25]</td>
+<td>Başa "yok" eklenince her kayıt kendi sırasında "bir öncekiyle fark"ını görür</td>
+</tr>
+<tr>
+<td><code>prn[1:] == prn[:-1]</code></td>
+<td>[True, True, False, True, True]</td>
+<td>"Bu kayıt üsttekiyle aynı uydu mu?" (ilk kayıt için cevap yok)</td>
+</tr>
+<tr>
+<td><code>same = np.r_[False, ...]</code></td>
+<td>[False, True, True, False, True, True]</td>
+<td>Başa False eklenmiş hali</td>
+</tr>
+<tr>
+<td><code>same &amp; (fark == 0)</code></td>
+<td>[False, False, True, False, False, False]</td>
+<td>3. kayıt: aynı uydu ve L2 hiç değişmemiş → donmuş kayıt</td>
+</tr>
+<tr>
+<td><code>np.cumsum([0, 1, 0, 0, 1])</code></td>
+<td>[0, 1, 1, 1, 2]</td>
+<td>Birikimli toplam: her eleman kendisi ve öncekilerin toplamı</td>
+</tr>
+<tr>
+<td><code>np.where(prn == 5, "GPS-5", "diğer")</code></td>
+<td>["GPS-5", "GPS-5", "GPS-5", "diğer", "diğer", "diğer"]</td>
+<td>Koşula göre iki değerden birini seçer</td>
+</tr>
+<tr>
+<td><code>np.median([3, 1, 100])</code></td>
+<td>3</td>
+<td>Ortanca: sıralayınca ortadaki. Ortalamadan farkı, tek bir saçma değerden (100) etkilenmemesi</td>
+</tr>
+</tbody>
+</table></div>
+<p>Dikkat edilecek iki nokta:</p>
+<ul>
+<li><code>np.diff</code> ve <code>prn[1:] == prn[:-1]</code> bir eksik eleman verir. Kodda hemen hep <code>np.r_[...]</code> ile başa bir eleman eklenir ki sonuç tekrar kayıt sayısı kadar uzun olsun ve her kayıtla hizalansın.</li>
+<li>4. kayıtta L2 farka 370 çıkıyor ama bu anlamsızdır: G07'nin ilk kaydı G05'in son kaydıyla karşılaştırılmış. <code>same</code> maskesi tam bunu engellemek için vardır: <code>same</code> False olan yerde fark dikkate alınmaz.</li>
+</ul>
+<h3 id="b9-2"><a class="m-anchor" href="#b9-2" aria-hidden="true">#</a>9.2 Verinin kodun içindeki hali: kayıt dizileri</h3>
+<p>Kodun tamamını anlamanı sağlayacak tek fikir şu: <strong>RINEX dosyasındaki her "bir uydunun bir epoktaki ölçüsü" bir kayıttır</strong> ve bütün kayıtlar alt alta uzun dizilerde durur. Bir Excel tablosu düşün: her satır bir kayıt, her sütun bir dizi.</p>
+<p><code>readers.read_obs()</code> gözlem dosyasını okuyup şu sözlüğü verir (ISTA'da 27 171 kayıt):</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Anahtar</th>
+<th>İçeriği</th>
+<th>Birim</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>t</code></td>
+<td>Kaydın zamanı, 6 Ocak 1980'den beri geçen GPS saniyesi</td>
+<td>s</td>
+</tr>
+<tr>
+<td><code>prn</code></td>
+<td>Uydu numarası. GPS'te 1–32; Galileo'da 100 + numara (E24 → 124)</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>P1</code>, <code>P2</code>, <code>C1</code></td>
+<td>Kod ölçüleri</td>
+<td>m</td>
+</tr>
+<tr>
+<td><code>L1</code>, <code>L2</code></td>
+<td>Faz ölçüleri</td>
+<td>devir</td>
+</tr>
+<tr>
+<td><code>lli</code></td>
+<td>Alıcının faz kopması işareti (True/False)</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td>Başlık bilgileri: istasyon adı, alıcı, anten, yaklaşık konum, aralık…</td>
+<td>–</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>preprocess()</code> bu dizileri önce <strong>uyduya, sonra zamana göre</strong> sıralar ve yeni sütunlar ekler. ISTA'da 13:15 civarında dizilerin birkaç satırı gerçekte şöyle görünür:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>t (saat)</th>
+<th>prn</th>
+<th>P1 [m]</th>
+<th>L1 [devir]</th>
+<th>L1d [devir]</th>
+<th>arc</th>
+<th>usable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>13:14:30</td>
+<td>15</td>
+<td>24 405 976,879</td>
+<td>−8 205 221,938</td>
+<td>1 247 298,062</td>
+<td>110</td>
+<td>True</td>
+</tr>
+<tr>
+<td>13:15:00</td>
+<td>15</td>
+<td>24 396 640,963</td>
+<td>−8 254 282,114</td>
+<td>1 198 237,886</td>
+<td>110</td>
+<td>True</td>
+</tr>
+<tr>
+<td>13:15:30</td>
+<td>15</td>
+<td>24 387 381,467</td>
+<td>−8 302 939,418</td>
+<td>1 149 580,582</td>
+<td>110</td>
+<td>True</td>
+</tr>
+<tr>
+<td>13:14:30</td>
+<td>16</td>
+<td>21 678 020,642</td>
+<td>−18 358 145,036</td>
+<td>−8 905 625,036</td>
+<td>123</td>
+<td>True</td>
+</tr>
+<tr>
+<td>13:15:00</td>
+<td>16</td>
+<td>21 671 259,091</td>
+<td>−18 393 677,827</td>
+<td>−8 941 157,827</td>
+<td>123</td>
+<td>True</td>
+</tr>
+</tbody>
+</table></div>
+<p>Bu tablodan okunacaklar:</p>
+<ul>
+<li>G15'in kod ölçüsü 30 saniyede yaklaşık 9,3 km azalıyor: uydu bize yaklaşıyor.</li>
+<li><code>L1</code> ile <code>L1d</code> arasında tam 9 452 520 devir fark var. Bu, günün o saatine kadar biriken 6 tane 1 ms saat sıçramasının düzeltmesidir (6 × 1 575 420 devir). <code>L1d</code> "düzeltilmiş L1" demektir.</li>
+<li><code>arc</code> sütunu kaydın hangi yaya ait olduğunu söyler. G15'in 13:15'teki yayı 110 numaralı yaydır; kopma olsaydı numara 111'e geçerdi.</li>
+<li><code>usable</code> kaydın hesaba girip giremeyeceğini söyler (kısa yay ya da kaba hata ise False).</li>
+</ul>
+<p><code>preprocess()</code>'in geri verdiği sözlükteki diğer anahtarlar: <code>L2d</code> (düzeltilmiş L2), <code>GF</code>, <code>MW</code> (kopma testi kombinasyonları), <code>outlier</code> (kaba hata işareti), <code>K</code> (o ana kadar biriken saat sıçraması, ms), <code>f1</code>, <code>f2</code> (kayıt başına frekanslar; Galileo'da f2 farklı), <code>isE</code> (Galileo kaydı mı), <code>jumps</code> (saat sıçramaları listesi), <code>arcs</code> (yay listesi), <code>stats</code> (ekrandaki ön işleme sayıları).</p>
+<p>Sonraki bütün adımlar aynı mantıkla çalışır: her adım bu kayıt dizilerinin yanına kendi sütununu ekler. Uydu konumu <code>Xs</code> (her kayıt için X, Y, Z), yükseklik açısı <code>el</code>, troposfer gecikmesi <code>Ttrop</code>, düzeltmeler <code>corr_L3</code> gibi. En sonunda seçilen kayıtlar (<code>sel</code> maskesi) en küçük karelere verilir.</p>
+<h3 id="b9-3"><a class="m-anchor" href="#b9-3" aria-hidden="true">#</a>9.3 preprocess.py: veriyi temizleme ve faz kopmaları</h3>
+<p>Dosyada tek fonksiyon işi yapar: <code>preprocess(obs)</code>. Dört kısımdan oluşur; koddaki yorumlar da 1), 2), 3), 4) diye numaralanmıştır.</p>
+<p><strong>Kısım 1: sıralama ve donmuş kayıtlar</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">order = np.lexsort((t, prn))                     <span class="c"># once uyduya, sonra zamana gore siralama sirasi</span>
+t, prn, P1, P2, L1, L2 = (a[order] <span class="k">for</span> a <span class="k">in</span> (t, prn, P1, P2, L1, L2))
+same = np.r_[<span class="k">False</span>, prn[1:] == prn[:-1]]         <span class="c"># bu kayit bir oncekiyle ayni uydu mu?</span>
+
+frozen = same &amp; (np.r_[np.nan, np.diff(L2)] == 0.0)   <span class="c"># L2 bir onceki kayitla birebir ayni</span>
+P2[frozen] = np.nan                              <span class="c"># donmus kaydi bosalt</span>
+L2[frozen] = np.nan
+full = ~(np.isnan(P1) | np.isnan(P2) | np.isnan(L1) | np.isnan(L2))   <span class="c"># dort olcusu de olanlar</span>
+</code></pre></div>
+<ul>
+<li>1. satır: Kayıtları önce uydu numarasına, aynı uydu içinde zamana göre dizer. Böylece bir uydunun bütün kayıtları alt alta gelir ve "bir önceki kayıt" aynı uydunun bir önceki epoğu olur.</li>
+<li>3. satır: <code>same</code>, her kayıt için "bir üstteki kayıtla aynı uydu mu" sorusunun cevabıdır. Farklı uyduları karşılaştırmamak için her yerde kullanılır.</li>
+<li>5. satır: Faz hareket eden bir uyduda her epokta değişir. L2 bir önceki epokla virgülün son hanesine kadar aynıysa alıcı eski değeri tekrar yazmıştır ("donmuş"); bu kayıtlar boşaltılır.</li>
+<li>Son satır: P1, P2, L1, L2'nin dördü birden olmayan kayıtlar atılır; çift frekans hesabı dördünü de ister.</li>
+</ul>
+<p><strong>Kısım 2: alıcı saati sıçramaları</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">dcmc = np.r_[np.nan, np.diff(P1) - lam1[1:] * np.diff(L1)]   <span class="c"># (P1 - lam1*L1)'in epoktan epoga degisimi</span>
+...
+<span class="k">for</span> a, b <span class="k">in</span> zip(cut[:-1], cut[1:]):          <span class="c"># her epok icin</span>
+    med = float(np.median(vv[a:b]))          <span class="c"># o epoktaki butun uydularin ortancasi</span>
+    k = int(round(med / MS))                 <span class="c"># kac milisaniye? (MS = 299 792,458 m)</span>
+    <span class="k">if</span> k != 0 <span class="k">and</span> abs(med - k * MS) &lt; 1000.0:
+        k_ep[j] = k                          <span class="c"># bu epokta k ms'lik sicrama var</span>
+K = np.cumsum(k_ep)                          <span class="c"># o ana kadar biriken sicrama</span>
+L1d = L1 + Krec * f1 * 1e-3                  <span class="c"># faza k * 1 575 420 devir ekle</span>
+L2d = L2 + Krec * f2 * 1e-3                  <span class="c"># faza k * 1 227 600 devir ekle</span>
+</code></pre></div>
+<ul>
+<li>Normalde P1 − λ₁L1 epoktan epoğa yalnız birkaç santimetre değişir (iyonosfer ve gürültü). Alıcı saatini 1 ms düzelttiğinde kod 299 792 m sıçrar ama faz sıçramaz. O yüzden fark birden \~300 km olur.</li>
+<li>Tek uyduya bakmak yanıltıcı olabilir. Bu yüzden o epoktaki <strong>bütün uyduların ortancası</strong> (<code>median</code>) alınır. Ortanca 299 792 m'nin tam katına 1 km'den yakınsa sıçrama kabul edilir.</li>
+<li><code>np.cumsum</code> "birikimli toplam" demektir: 00:48'de 1, 03:10'da 1 daha… 13:15'e gelindiğinde K = 6 ms olur.</li>
+<li>Son iki satır fazı koda yetiştirir: 1 ms × 1 575,42 MHz = 1 575 420 devir. Böylece sıçrama fazda da yapılmış olur ve fark kaybolur.</li>
+</ul>
+<p><strong>Kağıt üstünde (sıçrama sayıları ISTA'dan):</strong></p>
+<ol>
+<li><strong>Sıradan bir epok, 13:14:30 → 13:15:00.</strong> Her uydu için <code>dcmc</code> (P1 − λ₁L1'in 30 saniyedeki değişimi) birkaç santimetredir, örneğin 0,03 / −0,05 / 0,02 m. Ortanca 0,02 m. <code>k = round(0,02 / 299 792,458) = 0</code>. Sıçrama yok.</li>
+<li><strong>Sıçramalı epok, 00:48:30.</strong> 11 uydunun hepsinde fark 299 792 m civarında. Ortanca 299 792,399 m. <code>k = round(299 792,399 / 299 792,458) = round(0,9999998) = 1</code>. Kontrol: |299 792,399 − 1 × 299 792,458| = 0,059 m, 1000 m'den küçük. Sonuç: bu epokta 1 ms sıçrama var, <code>k_ep</code> dizisinin o epoğa karşılık gelen elemanı 1 yapılır.</li>
+<li><strong>Birikim.</strong> Günün epokları için <code>k_ep</code> şöyle bir dizidir: çoğu 0, sıçrama epoklarında 1. <code>np.cumsum</code> bunu "o ana kadar kaç sıçrama oldu" dizisine çevirir: 00:48'den önce 0, 00:48–03:10 arası 1, 03:10–05:32 arası 2, … 12:38–14:59 arası 6.</li>
+<li><strong>Her kayda dağıtma.</strong> <code>K[np.searchsorted(ep, t)]</code> satırı her kaydın kendi epoğunun birikimini almasını sağlar. 13:15'teki her kayıt için <code>Krec = 6</code>.</li>
+<li><strong>Fazı düzeltme.</strong> G15'in 13:15'teki L1'i −8 254 282,114 devir. <code>L1d = −8 254 282,114 + 6 × 1 575 420 = 1 198 237,886</code> devir. 9.2'deki tablodaki L1d değeri budur.</li>
+</ol>
+<p>Neden ortanca? Tek bir uyduda o an gerçek bir faz kopması olsa onun değeri saçma çıkar; ortalama bundan etkilenir, ortanca etkilenmez.</p>
+<p><strong>Kısım 3: GF ve MW kombinasyonları</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">GF = lam1 * L1d - lam2 * L2d
+MW = ((f1 * lam1 * L1d - f2 * lam2 * L2d) / (f1 - f2) - (f1 * P1 + f2 * P2) / (f1 + f2)) / lamw
+<span class="k">if</span> gf_thr is <span class="k">None</span>:
+    gf_thr = 0.10 <span class="k">if</span> interval &lt;= 30 <span class="k">else</span> min(0.5, 0.10 * interval / 30.0)
+</code></pre></div>
+<ul>
+<li>GF metre cinsindendir. Uzaklık, saatler ve troposfer çıkarılınca yalnız iyonosfer ve belirsizlik kalır; kopma yoksa yavaşça değişir.</li>
+<li>MW geniş şerit devri cinsindendir (<code>lamw</code> = 86 cm). İyonosfer de yok edildiği için kopma yoksa sabittir.</li>
+<li>GF eşiği kendiliğinden seçilir: 30 s ve daha sık veride 10 cm, daha seyrek veride iyonosfer daha çok değişeceği için büyütülür (en çok 50 cm).</li>
+</ul>
+<p><strong>Gerçek sayılarla:</strong> G15'in GF değerleri 13:14:30, 13:15:00 ve 13:15:30'da −6339,8029, −6339,8082 ve −6339,8181 m. GF'nin kendisi büyük bir sayıdır (içinde belirsizlikler var), ama önemli olan ardışık farklardır: −5,3 mm ve −9,9 mm. İkisi de 10 cm'lik eşiğin çok altında. MW değerleri −28 066 465,30, ,46 ve ,63 devir: yay ortalamasından sapma birkaç onda bir devir, 4 devirlik eşiğin çok altında. Yani G15'te bu üç epokta kopma yok.</p>
+<p>Kopma olsaydı ne görürdük? L1'de tek bir devir kaysa GF bir anda λ₁ = 19 cm sıçrar (eşik 10 cm: yakalanır), MW ise 1 devir sıçrar (eşik 4 devir: yakalanmaz). Bu yüzden iki test birlikte kullanılır; biri kaçırırsa öteki yakalar.</p>
+<p><strong>Kısım 4: yayları kurma (asıl kopma testi)</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">for</span> i <span class="k">in</span> range(n):                                   <span class="c"># kayitlari tek tek gez</span>
+    new = <span class="k">False</span>
+    <span class="k">if</span> prev is <span class="k">None</span> <span class="k">or</span> prn[i] != prev[2] <span class="k">or</span> t[i] - t_last &gt; gap <span class="k">or</span> (use_lli <span class="k">and</span> lli[i]):
+        new = <span class="k">True</span>                                   <span class="c"># yeni uydu, bosluk ya da LLI -&gt; yeni yay</span>
+    <span class="k">else</span>:
+        ok = abs(GF[i] - prev[1]) &lt;= gf_thr <span class="k">and</span> abs(MW[i] - mw_sum / mw_n) &lt;= mw_thr
+        <span class="k">if</span> <span class="k">not</span> ok:                                   <span class="c"># test gecemedi</span>
+            j = i + 1                                <span class="c"># bir sonraki kayda bak</span>
+            <span class="k">if</span> ... abs(GF[j] - prev[1]) &lt;= gf_thr <span class="k">and</span> abs(MW[j] - mw_sum / mw_n) &lt;= mw_thr:
+                outlier[i] = <span class="k">True</span>                    <span class="c"># sonraki normalse: bu tek kayit kaba hata</span>
+                <span class="k">continue</span>
+            new = <span class="k">True</span>                               <span class="c"># sonraki de bozuksa: gercek kopma</span>
+    <span class="k">if</span> new:
+        arc_no += 1                                  <span class="c"># yay numarasini bir artir</span>
+        mw_sum, mw_n = 0.0, 0                        <span class="c"># MW ortalamasini sifirla</span>
+    arc[i] = arc_no                                  <span class="c"># kaydi bu yaya yaz</span>
+    mw_sum += MW[i]                                  <span class="c"># MW ortalamasini guncelle</span>
+    mw_n += 1
+    prev = (t[i], GF[i], prn[i])                     <span class="c"># &quot;bir onceki kayit&quot; artik bu</span>
+</code></pre></div>
+<p>Bu döngü kodun kopma tespitinin kendisidir. Sıradaki her kayıt için program şu soruyu sorar: "Bu kayıt, önceki kayıtla aynı yaya devam edebilir mi?"</p>
+<ol>
+<li>Uydu değiştiyse, arada <code>gap</code> süresinden uzun boşluk varsa ya da alıcı LLI ile kopma işaretlediyse <strong>cevap hayır</strong>, yeni yay açılır.</li>
+<li>Yoksa iki test yapılır: GF bir önceki kayıttan eşikten fazla mı farklı? MW o yayın o ana kadarki ortalamasından 4 devirden fazla mı sapmış?</li>
+<li>İkisi de geçerse kayıt aynı yaya yazılır.</li>
+<li>Biri geçmezse hemen karar verilmez, <strong>bir sonraki kayda bakılır</strong>. Sonraki kayıt eski değerlere uyuyorsa sorun yalnız bu kayıttadır: kaba hata olarak işaretlenir (<code>outlier</code>) ve atlanır. Sonraki de uymuyorsa gerçek bir kopma vardır ve yeni yay başlar.</li>
+</ol>
+<p><strong>Döngüyü elle çalıştıralım.</strong> 30 saniyelik veride uydudan 9 kayıt gelsin. Eşikler: GF 0,10 m, MW 4 devir, boşluk (<code>gap</code>) 45 s. Tabloda her satır döngünün bir turüdür. ΔGF bir önceki <em>kabul edilmiş</em> kayıtla farktır.</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>i</th>
+<th>Uydu</th>
+<th>t [s]</th>
+<th>GF [m]</th>
+<th>MW [devir]</th>
+<th>ΔGF [m]</th>
+<th>MW − yay ort.</th>
+<th>Karar</th>
+<th>arc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>G05</td>
+<td>0</td>
+<td>2,000</td>
+<td>10,0</td>
+<td>–</td>
+<td>–</td>
+<td>İlk kayıt (<code>prev</code> yok) → yeni yay</td>
+<td>0</td>
+</tr>
+<tr>
+<td>1</td>
+<td>G05</td>
+<td>30</td>
+<td>2,004</td>
+<td>10,4</td>
+<td>0,004</td>
+<td>0,4</td>
+<td>İki test geçti → aynı yay</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>G05</td>
+<td>60</td>
+<td>2,009</td>
+<td>9,8</td>
+<td>0,005</td>
+<td>−0,4</td>
+<td>Geçti → aynı yay</td>
+<td>0</td>
+</tr>
+<tr>
+<td>3</td>
+<td>G05</td>
+<td>90</td>
+<td>2,350</td>
+<td>10,1</td>
+<td>0,341</td>
+<td>0,0</td>
+<td>GF geçemedi → sonrakine bak: i = 4, 2,009'a göre 0,004, normal → <strong>kaba hata</strong>, atla</td>
+<td>–</td>
+</tr>
+<tr>
+<td>4</td>
+<td>G05</td>
+<td>120</td>
+<td>2,013</td>
+<td>10,3</td>
+<td>0,004</td>
+<td>0,2</td>
+<td>Geçti (karşılaştırma i = 2 ile) → aynı yay</td>
+<td>0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>G05</td>
+<td>150</td>
+<td>2,203</td>
+<td>11,3</td>
+<td>0,190</td>
+<td>1,2</td>
+<td>GF geçemedi → sonrakine bak: i = 6 de 0,194 farklı → <strong>gerçek kopma</strong> → yeni yay, MW ortalaması sıfırlanır</td>
+<td>1</td>
+</tr>
+<tr>
+<td>6</td>
+<td>G05</td>
+<td>180</td>
+<td>2,207</td>
+<td>11,1</td>
+<td>0,004</td>
+<td>−0,2</td>
+<td>Geçti (artık yeni seviyeye göre) → aynı yay</td>
+<td>1</td>
+</tr>
+<tr>
+<td>7</td>
+<td>G05</td>
+<td>600</td>
+<td>2,512</td>
+<td>11,0</td>
+<td>–</td>
+<td>–</td>
+<td>Son kayıttan 420 s geçmiş (&gt; 45 s) → <strong>boşluk</strong>, yeni yay</td>
+<td>2</td>
+</tr>
+<tr>
+<td>8</td>
+<td>G07</td>
+<td>0</td>
+<td>5,100</td>
+<td>−3,0</td>
+<td>–</td>
+<td>–</td>
+<td>Uydu değişti → yeni yay</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div>
+<p>Tablodan çıkan dersler:</p>
+<ul>
+<li>3. kayıt tek başına sıçrayıp geri döndüğü için yayı bölmedi; yalnız kendisi atıldı. Kaba hata ile kopmanın farkı budur: kaba hata geçicidir, kopma kalıcıdır.</li>
+<li>5. kayıttaki kopmada GF 19 cm sıçradı (L1'de 1 devirlik kopma), MW yalnız 1,2 devir saptı. GF olmasa bu kopma kaçardı.</li>
+<li>Kopmadan sonra 6. kayıt artık 2,203'e göre karşılaştırılır; yeni seviye kabul edilmiştir.</li>
+<li>Sonuçta 4 yay çıktı. Yay 0 (4 kayıt) ve yay 1 (2 kayıt) en küçük kareler için ayrı belirsizlikler alır. Gerçek veride 10 dakikadan kısa yaylar (30 s'de 20 kayıttan az) zaten kullanılmaz.</li>
+</ul>
+<p>Kopma burada <strong>onarılmaz</strong>: kayan devir sayısı hesaplanıp faza eklenmez. Onun yerine yeni yay açılır; en küçük karelerde her yay kendi belirsizliğini aldığı için kayma bu yeni belirsizliğin içine gider ve konumu bozmaz.</p>
+<p>Fonksiyonun geri kalanında iki ek iş vardır: 5 saniye ve daha sık veride kayan pencereyle küçük kopmaları arayan ek test (<code>4b</code>), sonra her yayın uzunluğuna bakıp kısa yayları <code>usable = False</code> yapan kısım.</p>
+<h3 id="b9-4"><a class="m-anchor" href="#b9-4" aria-hidden="true">#</a>9.4 codefilter.py: kod ölçülerine Kalman filtresi</h3>
+<p>Dosyada iki fonksiyon çalışır. <code>kalman_code_filter()</code> yayları tek tek gezer ve her yay için asıl filtreyi yapan <code>_filter_arc()</code>'ı çağırır.</p>
+<p><strong>Hazırlık: kodun ne kadar değişeceğini fazdan bulmak</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">phi1 = C / f1 * P[<span class="s">&quot;L1d&quot;</span>]                     <span class="c"># L1 fazi, metreye cevrilmis</span>
+phi2 = C / f2 * P[<span class="s">&quot;L2d&quot;</span>]                     <span class="c"># L2 fazi, metre</span>
+I1 = (phi1 - phi2) / (g2 - 1.0)              <span class="c"># L1'deki iyonosfer gecikmesi (+ sabit)</span>
+...
+<span class="k">for</span> a <span class="k">in</span> np.unique(arc[arc &gt;= 0]):           <span class="c"># her yay icin</span>
+    m = np.where(arc == a)[0]                <span class="c"># bu yaya ait kayitlarin sira numaralari</span>
+    dt = np.r_[0.0, np.diff(t[m])]           <span class="c"># epoklar arasi sure (30 s)</span>
+    dph1 = np.r_[0.0, np.diff(phi1[m] + 2.0 * I1[m])]   <span class="c"># P1'in beklenen degisimi</span>
+    x, s, K, rej, nr = _filter_arc(P[<span class="s">&quot;P1&quot;</span>][m], dph1, dt, tau, R, thr)
+</code></pre></div>
+<ul>
+<li>1–2. satırlar: Faz devir cinsindendir. Dalga boyuyla (c/f) çarpılınca metreye döner.</li>
+<li>3. satır: İki frekansın faz farkı yalnız iyonosferden (ve sabit belirsizliklerden) oluşur. Böylece iyonosferin epoktan epoğa ne kadar değiştiği bulunur.</li>
+<li><code>dph1</code> satırı filtrenin can alıcı noktasıdır. İyonosfer kodu geciktirir ama fazı hızlandırır (işareti ters). Bu yüzden kodun değişimi, fazın değişimi artı iki kat iyonosfer değişimidir. Klasik Hatch filtresinde bu düzeltme yoktur ve kod zamanla fazdan ayrışır; burada ayrışma olmaz.</li>
+<li>Aynı iş P2 için de yapılır (L2'de iyonosfer γ₂ = 1,647 katıdır).</li>
+</ul>
+<p><strong>Filtrenin kendisi: <code>_filter_arc()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">xk, pk = z[0], R                             <span class="c"># baslangic: ilk ham kod, belirsizligi R = 1 m^2</span>
+<span class="k">for</span> k <span class="k">in</span> range(1, n):                        <span class="c"># yayin ikinci kaydindan itibaren</span>
+    kap = min(dt[k] / tau, 0.999)            <span class="c"># kappa = 30 / 100 = 0,3</span>
+    q = R * kap * kap / (1.0 - kap)          <span class="c"># surec gurultusu</span>
+    xm = xk + dphi[k]                        <span class="c"># TAHMIN: onceki deger + fazdan gelen degisim</span>
+    pm = pk + q                              <span class="c"># tahminin belirsizligi biraz buyur</span>
+    v = z[k] - xm                            <span class="c"># yenilik: olculen kod - tahmin</span>
+    s = pm + R                               <span class="c"># yeniligin beklenen buyuklugu</span>
+    <span class="k">if</span> abs(v) &gt; thr * math.sqrt(s):          <span class="c"># 5 sigmadan buyukse kod aykiri</span>
+        n_bad += 1
+        <span class="k">if</span> n_bad &gt;= 3:                       <span class="c"># ust uste 3 ret: filtre bozulmus, yeniden basla</span>
+            xk, pk = z[k], R
+        <span class="k">else</span>:
+            xk, pk = xm, pm                  <span class="c"># olcuyu kullanma, tahminle devam et</span>
+    <span class="k">else</span>:
+        g = pm / s                           <span class="c"># Kalman kazanci K</span>
+        xk = xm + g * v                      <span class="c"># GUNCELLEME: tahmini olcuye dogru K kadar cek</span>
+        pk = (1.0 - g) * pm                  <span class="c"># belirsizlik kuculur</span>
+</code></pre></div>
+<p>Bunu günlük bir örnekle düşün: Arabanla gidiyorsun. Konumunu titrek bir GPS'ten (kod) okuyorsun. Ama kilometre sayacın (faz) çok hassas: ne kadar yol gittiğini milimetresine kadar biliyorsun, yalnız nereden başladığını bilmiyorsun. Filtre her adımda şunu yapar:</p>
+<ol>
+<li><strong>Tahmin (<code>xm</code>):</strong> "Az önce buradaydım, sayaç şu kadar ilerledi, demek ki şimdi şuradayım."</li>
+<li><strong>Yenilik (<code>v</code>):</strong> Titrek GPS ne diyor, tahminden ne kadar farklı?</li>
+<li><strong>Kontrol:</strong> Fark beklenenin 5 katından büyükse GPS o an saçmalıyordur, dikkate alma. Üç kez üst üste saçmalıyorsa belki yanlış olan sensin; baştan başla.</li>
+<li><strong>Güncelleme:</strong> Fark makulse tahmini GPS'e doğru biraz çek. Ne kadar çekeceğini kazanç <code>g</code> (K) belirler.</li>
+</ol>
+<p>Kazancın davranışı: Yayın başında tahminin belirsizliği büyüktür, K = 1'e yakındır ve filtre neredeyse ham koda inanır. Zamanla belirsizlik azalır ve K, Δt/τ değerine (30/100 = 0,3) oturur. Yani kararlı durumda her yeni kod ölçüsü sonuca %30 ağırlıkla, fazdan gelen tahmin %70 ağırlıkla girer. <code>q</code> formülü tam da bunu sağlayacak şekilde seçilmiştir; τ büyütülürse K küçülür ve süzme güçlenir.</p>
+<p><strong>Filtreyi elle çalıştıralım.</strong> Uydunun gerçek uzaklığı 100, 110, 120, 130, 140, 150 m olsun (her 30 saniyede 10 m artıyor; faz bu artışı milimetre doğrulukla biliyor, yani <code>dphi</code> = 10). Kod ölçüsü ise gürültülü geliyor: 100,8 / 109,5 / 121,2 / 129,6 / 140,3 / 149,7. Ayarlar varsayılan: R = 1 m² (kod doğruluğu 1 m), τ = 100 s, Δt = 30 s, yani q = 1 × 0,3² / 0,7 = 0,129.</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Adım k</th>
+<th>Tahmin xm = x + dphi</th>
+<th>Ölçü z</th>
+<th>Yenilik v = z − xm</th>
+<th>Kazanç K</th>
+<th>Sonuç x = xm + K·v</th>
+<th>Sonucun hatası</th>
+<th>Ham kodun hatası</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>–</td>
+<td>100,8</td>
+<td>–</td>
+<td>1</td>
+<td>100,800</td>
+<td>0,800</td>
+<td>0,8</td>
+</tr>
+<tr>
+<td>1</td>
+<td>110,800</td>
+<td>109,5</td>
+<td>−1,300</td>
+<td>0,530</td>
+<td>110,111</td>
+<td>0,111</td>
+<td>−0,5</td>
+</tr>
+<tr>
+<td>2</td>
+<td>120,111</td>
+<td>121,2</td>
+<td>1,089</td>
+<td>0,397</td>
+<td>120,543</td>
+<td>0,543</td>
+<td>1,2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>130,543</td>
+<td>129,6</td>
+<td>−0,943</td>
+<td>0,345</td>
+<td>130,218</td>
+<td>0,218</td>
+<td>−0,4</td>
+</tr>
+<tr>
+<td>4</td>
+<td>140,218</td>
+<td>140,3</td>
+<td>0,082</td>
+<td>0,321</td>
+<td>140,245</td>
+<td>0,245</td>
+<td>0,3</td>
+</tr>
+<tr>
+<td>5</td>
+<td>150,245</td>
+<td>149,7</td>
+<td>−0,545</td>
+<td>0,310</td>
+<td>150,076</td>
+<td>0,076</td>
+<td>−0,3</td>
+</tr>
+</tbody>
+</table></div>
+<p>Bu tabloyu sütun sütun okuyalım:</p>
+<ul>
+<li><strong>Adım 0:</strong> Filtrenin elinde başka bilgi yok, ilk ham kodu olduğu gibi alır (100,8). Belirsizliği de kodunki kadardır (1 m²).</li>
+<li><strong>Adım 1, tahmin:</strong> "Az önce 100,8'deydim, faz 10 m arttı dedi, şimdi 110,8'deyim."</li>
+<li><strong>Adım 1, yenilik:</strong> Kod 109,5 diyor. Tahminle arasında −1,3 m fark var.</li>
+<li><strong>Adım 1, kazanç:</strong> Tahminin belirsizliği (1 + 0,129) ile kodunki (1) hemen hemen eşit, bu yüzden K ≈ 0,53: farkın yarısı kadar koda doğru gidilir. 110,8 − 0,53 × 1,3 = 110,111.</li>
+<li><strong>Sonraki adımlar:</strong> Filtre her adımda daha emin olur, K küçülür (0,53 → 0,40 → 0,34 → 0,32 → 0,31) ve 0,3'e yaklaşır. Kodun her yeni sıçraması sonuca artık yalnız %30 etkiyle yansır.</li>
+<li><strong>Son iki sütun:</strong> Ham kodun hatası ±0,3 ile ±1,2 m arasında zikzak çiziyor. Filtrenin hatası daha küçük ve işareti değişmiyor: gürültü ortalanıyor. Gerçek ISTA verisinde bu, P1 gürültüsünün 0,58 m'den 0,27 m'ye inmesi olarak görünür.</li>
+</ul>
+<p>Bir kod ölçüsü çok saçma gelseydi ne olurdu? Diyelim adım 3'te kod 129,6 yerine 139,6 geldi: v = 9,06 m. Beklenen yenilik büyüklüğü √(0,52 + 1) ≈ 1,2 m, 5 katı 6 m. 9,06 &gt; 6 olduğu için ölçü reddedilir ve sonuç tahminin kendisi olur (130,543). Bu tablodaki sayıların hepsi koddaki <code>_filter_arc()</code> çalıştırılarak elde edildi.</p>
+<p>Filtre çıktısı <code>P1f</code>, <code>P2f</code> olarak döner. pipeline.py bunları <code>P["P1"]</code>, <code>P["P2"]</code>'nin yerine koyar; ham kodlar <code>P1raw</code>, <code>P2raw</code> olarak saklanır ve çok yolluluk analizinde onlar kullanılır.</p>
+<h3 id="b9-5"><a class="m-anchor" href="#b9-5" aria-hidden="true">#</a>9.5 orbit.py ve pipeline.py: uydunun konumu ve saati</h3>
+<p>SP3 dosyası uydu konumunu yalnız 15 dakikada bir verir (13:00, 13:15, 13:30…). Bizim 13:14:59,93 gibi ara anlara ihtiyacımız var. Bunu <code>orbit.py</code>'deki iki fonksiyon çözer.</p>
+<p><strong>Konum: <code>sp3_interp()</code>, 11 noktalı Lagrange</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">NPT = 11                                          <span class="c"># 11 nokta = 10. derece polinom</span>
+...
+s0 = np.clip(np.searchsorted(ts, q) - NPT // 2, 0, n - NPT)   <span class="c"># istenen anin etrafindaki 11 SP3 epogu</span>
+idx = s0[:, <span class="k">None</span>] + np.arange(NPT)[<span class="k">None</span>, :]
+tt = ts[idx]                                      <span class="c"># bu 11 epogun zamanlari</span>
+w, dw = _lagrange_weights(q, tt)                  <span class="c"># her noktanin agirligi (ve turevi)</span>
+P = xyz[idx]                                      <span class="c"># bu 11 epoktaki uydu konumlari</span>
+p = np.einsum(<span class="s">&quot;mn,mnk-&gt;mk&quot;</span>, w, P)                 <span class="c"># konum = agirlikli toplam</span>
+v = np.einsum(<span class="s">&quot;mn,mnk-&gt;mk&quot;</span>, dw, P)                <span class="c"># hiz = turev agirlikli toplam</span>
+</code></pre></div>
+<ul>
+<li>İstenen anın öncesinden 5, sonrasından 5–6 SP3 epoğu seçilir; toplam 11 nokta, yaklaşık 2,5 saatlik bir pencere.</li>
+<li><code>_lagrange_weights</code> her noktaya bir ağırlık verir. Lagrange polinomu bu 11 noktadan tam geçen eğridir; ara andaki değer, noktaların ağırlıklı toplamıdır. İstenen ana yakın noktaların ağırlığı büyüktür.</li>
+<li><code>einsum</code> satırları "ağırlıkla çarp ve topla" işini binlerce kayıt için bir kerede yapar. Aynı polinomun türevi de uydu hızını verir; hız, rölativistik düzeltme için gerekir.</li>
+</ul>
+<p><strong>Lagrange'ı elle yapalım (11 yerine 3 noktayla).</strong> Uydunun X koordinatı 13:00'te 1000 km, 13:15'te 2000 km, 13:30'da 2800 km olsun. 13:10'daki X'i istiyoruz. Zamanları 13:00'ten itibaren saniye yazalım: t₀ = 0, t₁ = 900, t₂ = 1800, istenen t = 600.</p>
+<p>Her noktanın ağırlığı şu kesirle bulunur: payında (t − diğer noktaların zamanı), paydasında (bu noktanın zamanı − diğer noktaların zamanı), hepsi çarpılır. <code>_lagrange_weights()</code> fonksiyonundaki iç içe iki <code>for</code> döngüsü tam olarak bunu yapar.</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Nokta</th>
+<th>Hesap</th>
+<th>Ağırlık</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>13:00</td>
+<td>(600 − 900)(600 − 1800) / ((0 − 900)(0 − 1800)) = 360 000 / 1 620 000</td>
+<td>0,2222</td>
+</tr>
+<tr>
+<td>13:15</td>
+<td>(600 − 0)(600 − 1800) / ((900 − 0)(900 − 1800)) = −720 000 / −810 000</td>
+<td>0,8889</td>
+</tr>
+<tr>
+<td>13:30</td>
+<td>(600 − 0)(600 − 900) / ((1800 − 0)(1800 − 900)) = −180 000 / 1 620 000</td>
+<td>−0,1111</td>
+</tr>
+</tbody>
+</table></div>
+<p>Ağırlıkların toplamı her zaman 1'dir. Sonuç: X(13:10) = 0,2222 × 1000 + 0,8889 × 2000 − 0,1111 × 2800 = 1688,9 km. 13:00 ile 13:15'i düz çizgiyle birleştirseydik 1666,7 km bulurduk; fark, üçüncü noktanın eğrinin bükümünü hesaba katmasından gelir. Gerçek kod aynı hesabı 11 noktayla yapar, böylece yörüngenin eğriliği milimetre doğrulukla izlenir. Bu sayılar da koddaki <code>_lagrange_weights()</code> çalıştırılarak doğrulandı.</p>
+<p><strong>Saat: <code>sp3_clock()</code>, doğrusal ara değer</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">k = np.clip(np.searchsorted(ts, tq) - 1, 0, len(ts) - 2)   <span class="c"># istenen anin hemen oncesindeki epok</span>
+a = (tq - t0) / (t1 - t0)                                  <span class="c"># iki epok arasinda nerede? (0 ile 1)</span>
+v = c[k] * (1 - a) + c[k + 1] * a                          <span class="c"># iki saat degeri arasinda dogru cizgi</span>
+</code></pre></div>
+<p>Uydu saati düzensiz sıçradığı için polinomla değil, iki komşu değer arasında düz çizgiyle ara değerlenir. 15 dakikalık aralıkta bu metre düzeyinde hata yapabilir. Bu yüzden saat dosyası yoksa faz çözümü yalnız SP3 epoklarında yapılır (orada ara değer gerekmez). CLK dosyası verilirse aynı fonksiyon 30 s'lik CLK değerleriyle çağrılır.</p>
+<p><strong>pipeline.py'deki "4. uydu konum ve saati" kısmı</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">for</span> p_ <span class="k">in</span> np.unique(prn):                       <span class="c"># her uydu icin</span>
+    m = prn == p_                               <span class="c"># bu uydunun kayitlari</span>
+    t_sat = t[m] - P[<span class="s">&quot;P1&quot;</span>][m] / C               <span class="c"># sinyalin yola cikis ani (kaba): alis ani - yol suresi</span>
+    c0 = orbit.sp3_clock(clk_src, int(p_), t_sat)   <span class="c"># uydu saat hatasi</span>
+    ttx = t_sat - c0                            <span class="c"># uydu saatini duzelt: gercek gonderim ani</span>
+    pos, vel = orbit.sp3_interp(sp3, int(p_), ttx)  <span class="c"># o andaki konum ve hiz</span>
+rel = -2 * np.einsum(<span class="s">&quot;ij,ij-&gt;i&quot;</span>, Xs, Vs) / C ** 2    <span class="c"># relativistik duzeltme: -2 r.v / c^2</span>
+dts_tot = dts + rel                             <span class="c"># toplam uydu saat hatasi</span>
+
+tau = np.linalg.norm(Xs - X0, axis=1) / C       <span class="c"># sinyalin yolda gecirdigi sure</span>
+<span class="k">for</span> _ <span class="k">in</span> range(2):
+    th = OMEGA_E * tau                          <span class="c"># bu surede Dunya ne kadar dondu (radyan)</span>
+    Xr = [cos(th) * X + sin(th) * Y, -sin(th) * X + cos(th) * Y, Z]   <span class="c"># uyduyu o kadar geri dondur</span>
+    tau = np.linalg.norm(Xr - X0, axis=1) / C
+el, az = geo.elaz(X0, Xs)                       <span class="c"># yukseklik ve azimut acisi</span>
+</code></pre></div>
+<p>Adım adım ne oluyor:</p>
+<ol>
+<li><strong>Alış anı bilinir</strong> (<code>t</code>): alıcının sinyali kaydettiği an, örneğin 13:15:00.</li>
+<li><strong>Gönderim anı bulunur:</strong> Sinyal yolda yaklaşık 70 ms kalır. Kod ölçüsü (metre) ışık hızına bölününce bu süre bulunur. Uydunun kendi saati de hatalı olduğu için (örnekte G21'de −381 µs) o da çıkarılır. Sonuç: uydunun sinyali gerçekte gönderdiği an.</li>
+<li><strong>Uydunun o andaki konumu</strong> Lagrange ile hesaplanır. 13:15:00'teki konum değil, 70 ms önceki konum gerekir; uydu saniyede 3,9 km gittiği için fark 270 m olur.</li>
+<li><strong>Rölativistik düzeltme:</strong> Uydunun yörüngesi tam çember olmadığı için saati çekimin ve hızın etkisiyle periyodik olarak hızlanıp yavaşlar. −2 r·v/c² terimi bunu düzeltir (örnekte G21'de +13 ns, yani yaklaşık 4 m).</li>
+<li><strong>Dünya dönüşü (Sagnac):</strong> Sinyal yoldayken Dünya ve onunla birlikte koordinat sistemimiz biraz döner. Uydu konumu bu açı kadar z ekseni etrafında geri döndürülür. Etkisi birkaç on metreye kadar çıkar (örnekte G21'de −3,6 m). Döngü iki kez döner, çünkü döndürme yol süresini de biraz değiştirir.</li>
+<li><strong>Yükseklik ve azimut:</strong> Uydunun alıcıdan görünüş açıları <code>geo.elaz()</code> ile bulunur. Yükseklik açısı sonraki her adımda kullanılır (troposfer, ağırlık, 10° sınırı).</li>
+</ol>
+<p><strong>G21 için 13:15:00'te sayılarla:</strong></p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Adım</th>
+<th>Kod</th>
+<th>Değer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kod ölçüsü</td>
+<td><code>P["P1"][m]</code></td>
+<td>21 312 231,926 m</td>
+</tr>
+<tr>
+<td>Sinyalin görünen yol süresi</td>
+<td><code>P1 / C</code></td>
+<td>21 312 231,926 / 299 792 458 = 71,090 ms</td>
+</tr>
+<tr>
+<td>Kaba gönderim anı</td>
+<td><code>t_sat = t - P1/C</code></td>
+<td>13:15:00 − 71,090 ms (uydu saatine göre)</td>
+</tr>
+<tr>
+<td>Uydu saat hatası</td>
+<td><code>sp3_clock(...)</code></td>
+<td>−380,886 µs</td>
+</tr>
+<tr>
+<td>Gerçek gönderim anı</td>
+<td><code>ttx = t_sat - c0</code></td>
+<td>13:15:00 − 71,090 ms + 0,381 ms = 13:15:00 − 70,709 ms</td>
+</tr>
+<tr>
+<td>Uydu konumu (Dünya dönüşü sonrası)</td>
+<td><code>sp3_interp(..., ttx)</code></td>
+<td>X 12 704 830,123, Y 10 578 648,037, Z 21 490 483,498 m</td>
+</tr>
+<tr>
+<td>Rölativistik düzeltme</td>
+<td><code>-2 r·v / c²</code></td>
+<td>+13,128 ns (× c = 3,94 m)</td>
+</tr>
+<tr>
+<td>Dünya dönüşü açısı</td>
+<td><code>OMEGA_E * tau</code></td>
+<td>7,292·10⁻⁵ rad/s × 0,070 s = 5,1·10⁻⁶ rad</td>
+</tr>
+<tr>
+<td>Dönüşün uzaklığa etkisi</td>
+<td><code>sagnac</code></td>
+<td>−3,615 m</td>
+</tr>
+<tr>
+<td>Gerçek yol süresi</td>
+<td><code>tau</code></td>
+<td>69,977 ms</td>
+</tr>
+</tbody>
+</table></div>
+<p>Dikkatli bakan şu soruyu sorar: 71,090 ile 69,977 ms arasındaki 1,1 ms nereden geliyor? Kod ölçüsü saf uzaklık değildir, içinde iki saatin hatası da vardır: alıcı saati +0,732 ms (Özet'teki 732 311 ns) ve uydu saati −0,381 ms. 69,977 + 0,732 + 0,381 = 71,090. Hesap tutuyor.</p>
+<p>5,1 milyonda bir radyan küçük görünebilir ama uydu Dünya'nın dönme ekseninden on binlerce km uzakta olduğu için bu açı uydunun yüz metre mertebesinde kayması demektir (G21 eksenden 16 500 km uzakta: 84 m). Bunun uzaklığa yansıyan kısmı uydunun yönüne göre değişir; G21'de −3,6 m.</p>
+<h3 id="b9-6"><a class="m-anchor" href="#b9-6" aria-hidden="true">#</a>9.6 corrections.py: düzeltme modelleri</h3>
+<p>Bu dosya fizik formüllerinin dosyasıdır. Her fonksiyon bir etkiyi metre cinsinden hesaplar. pipeline.py bunları çağırıp "model uzaklığa" ekler: uydu ile alıcı arasındaki geometrik uzaklığa bu gecikmeler eklenince ölçülmesi beklenen değer bulunur.</p>
+<p><strong>Troposfer: <code>saastamoinen()</code> ve <code>herring()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">e = RH / 100.0 * 6.1078 * np.exp(17.27 * Tc / (Tc + 237.3))     <span class="c"># su buhari basinci [mbar]</span>
+zhd = 0.0022768 * P / (1 - 0.00266 * math.cos(2 * lat) - 0.00028 * h / 1000.0)   <span class="c"># kuru gecikme [m]</span>
+zwd = 0.002277 * (1255.0 / Tk + 0.05) * e                      <span class="c"># islak gecikme [m]</span>
+</code></pre></div>
+<ul>
+<li>İlk satır bağıl nem ve sıcaklıktan havadaki su buharı basıncını bulur.</li>
+<li>Kuru gecikme neredeyse yalnız hava basıncına bağlıdır: ISTA'da 998,6 mbar → 2,2745 m. Enlem ve yükseklik küçük bir düzeltme yapar.</li>
+<li>Islak gecikme su buharına ve sıcaklığa bağlıdır: 26,2 °C ve %67,7 nemle 0,2219 m. Islak kısım tahmin edilmesi zor olduğu için modelden kalan kısmı en küçük karelerde ayrıca kestirilir.</li>
+<li>Bu değerler başucu içindir. <code>herring()</code> her uydunun yükseklik açısına göre bir eşleme katsayısı (<code>mh</code>, <code>mw</code>) verir; başucunda 1, 30°'de yaklaşık 2, 5°'de yaklaşık 9'dur. pipeline.py'de eğik gecikme <code>Ttrop = ZHD * mh + ZWD * mwet</code> olarak hesaplanır.</li>
+</ul>
+<p><strong>Hesap makinesiyle ISTA, 13:15:00.</strong> Meteoroloji dosyasından: P = 998,6 mbar, T = 26,2 °C, bağıl nem %67,7. İstasyon: enlem 41,10°, yükseklik 147 m.</p>
+<ol>
+<li><strong>Su buharı basıncı:</strong> e = 0,677 × 6,1078 × exp(17,27 × 26,2 / 263,5) = 0,677 × 6,1078 × 5,57 = <strong>23,03 mbar</strong>. Yani havadaki basıncın yaklaşık %2'si su buharından geliyor.</li>
+<li><strong>Kuru gecikme:</strong> Payda: 1 − 0,00266 × cos(82,2°) − 0,00028 × 0,147 = 1 − 0,00036 − 0,00004 = 0,9996. ZHD = 0,0022768 × 998,6 / 0,9996 = <strong>2,2745 m</strong>. Kural: her 1 mbar basınç yaklaşık 2,3 mm gecikme.</li>
+<li><strong>Islak gecikme:</strong> Kelvin sıcaklık Tk = 299,35. ZWD = 0,002277 × (1255 / 299,35 + 0,05) × 23,03 = 0,002277 × 4,242 × 23,03 = <strong>0,222 m</strong>.</li>
+<li><strong>Eğik yola taşıma:</strong> <code>herring()</code> bu istasyon için kuru eşleme katsayısını şöyle verir:</li>
+</ol>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Yükseklik açısı</th>
+<th>90°</th>
+<th>60°</th>
+<th>30°</th>
+<th>10°</th>
+<th>5°</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>m_h (kuru)</td>
+<td>1,000</td>
+<td>1,154</td>
+<td>1,992</td>
+<td>5,548</td>
+<td>10,106</td>
+</tr>
+<tr>
+<td>m_w (ıslak)</td>
+<td>1,000</td>
+<td>1,154</td>
+<td>1,996</td>
+<td>5,655</td>
+<td>10,734</td>
+</tr>
+<tr>
+<td>Eğik gecikme T = ZHD·m_h + ZWD·m_w</td>
+<td>2,50 m</td>
+<td>2,88 m</td>
+<td>4,97 m</td>
+<td>13,88 m</td>
+<td>25,37 m</td>
+</tr>
+</tbody>
+</table></div>
+<p>Kabaca m ≈ 1 / sin(yükseklik açısı); sinyal ufka yakın uydudan gelince atmosferin içinde daha uzun yol alır. 10°'deki uydunun gecikmesi başucundakinin 5,5 katıdır. Yükseklik açısı sınırının bir nedeni de budur: modeldeki küçük bir hata alçak uyduda 10 kat büyür.</p>
+<p><strong>Alıcı anteni: <code>receiver_antenna()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">off = h * U_ + e_ * E_ + n_ * N_                                  <span class="c"># RINEX'teki anten yuksekligi (ARP)</span>
+pco = sum(coef[f] * rec[f][<span class="s">&quot;pco&quot;</span>] <span class="k">for</span> f <span class="k">in</span> coef) / 1000.0         <span class="c"># ANTEX'teki faz merkezi kaymasi [mm -&gt; m]</span>
+off = off + pco[0] * N_ + pco[1] * E_ + pco[2] * U_              <span class="c"># toplam kayma vektoru</span>
+pcv = ... pcv_interp(rec[f][<span class="s">&quot;pcv&quot;</span>], ..., zen) ...                 <span class="c"># sinyalin geldigi aciya gore ek degisim</span>
+<span class="k">return</span> -(u @ off) + pcv
+</code></pre></div>
+<ul>
+<li>Ölçü yerdeki işarete (monument) değil, anten içindeki elektriksel noktaya yapılır. Bu nokta işaretin anten yüksekliği (ARP) artı PCO kadar üstündedir.</li>
+<li><code>coef</code>, L1 ve L2 için ayrı olan değerleri L3 kombinasyonuna çevirir (2,546 × L1 − 1,546 × L2).</li>
+<li>Son satır: Kayma vektörünün uyduya bakan bileşeni (<code>u @ off</code>, <code>u</code> uyduya giden birim vektör) uzaklığı o kadar kısaltır; işareti bu yüzden eksidir. PCV açıya bağlı ek düzeltmedir.</li>
+</ul>
+<p><strong>ISTA'da sayılarla:</strong> RINEX başlığındaki anten yüksekliği 0,061 m; ANTEX'ten L3 için yukarı yönlü PCO +47,12 mm. Toplam yukarı kayma yaklaşık 0,108 m. 72,4° yükseklikteki G21 için bu kaymanın uyduya bakan bileşeni 0,108 × sin(72,4°) = 0,103 m. İşareti eksi olduğu için model uzaklığı yaklaşık 103 mm kısalır; PCV ve küçük yatay bileşenlerle Düzeltmeler sekmesindeki −107,6 mm çıkar. 5,8°'deki G26 için aynı kaymanın uyduya bakan bileşeni neredeyse sıfırdır (tabloda +2,7 mm), çünkü anten yukarı kaymış ama uydu yan taraftadır. Bu yüzden anten düzeltmesi yapılmazsa hata en çok yükseklik bileşenine gider (Özet'teki "anten/gelgit/wind-up yok" çözümünde ΔU +9 cm).</p>
+<p><strong>Uydu anteni: <code>satellite_antenna()</code></strong></p>
+<p>Aynı fikir uydu tarafında. Fark şu: uydu anteninin kayması uydunun kendi gövde eksenlerinde verilir. <code>sat_body_axes()</code> bu eksenleri kurar: z ekseni Dünya'ya bakar, y ekseni Güneş yönüne diktir. PCV burada nadir açısına (uydudan bakınca alıcının açısı) göre verilir. GPS uydularında bu düzeltme 1 metreden fazladır ve uydu konumu SP3'te kütle merkezine göre verildiği için mutlaka gerekir.</p>
+<p><strong>Katı yer gelgiti: <code>solid_tide()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">for</span> cis, GM <span class="k">in</span> ((sun, GM_S), (moon, GM_M)):              <span class="c"># Gunes ve Ay icin ayri ayri</span>
+    sc = Rh @ rhat                                       <span class="c"># cismin istasyona gore aci kosinusu</span>
+    k = GM / GM_E * RE ** 4 / R ** 3                     <span class="c"># cekimin buyuklugu (uzaklikla azalir)</span>
+    dr += k * (0.6078 * rhat * (1.5 * sc**2 - 0.5)       <span class="c"># dusey hareket (h2 = 0,6078)</span>
+               + 3 * 0.0847 * sc * (Rh - sc * rhat))     <span class="c"># yatay hareket (l2 = 0,0847)</span>
+</code></pre></div>
+<p>Ay ve Güneş yerkabuğunu da okyanuslar gibi çeker. İstasyon gün içinde birkaç desimetre iner kalkar (ISTA'da −14 ile +9 cm arası). Fonksiyon bu yer değiştirmeyi metre cinsinden vektör olarak verir; pipeline.py onun uyduya bakan bileşenini uzaklığa ekler. 0,6078 ve 0,0847 sayıları IERS 2010'daki Love ve Shida sayılarıdır.</p>
+<p><strong>Shapiro: <code>shapiro()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">return</span> 2 * GM_E / C ** 2 * np.log((rs + rr + rho) / (rs + rr - rho))
+</code></pre></div>
+<p>Dünya'nın kütle çekimi uzay-zamanı büktüğü için sinyal biraz daha uzun yol alır. Tek satırlık formül; <code>rs</code> uydunun, <code>rr</code> alıcının merkeze uzaklığı, <code>rho</code> aralarındaki uzaklık. Sonuç 13–18 mm arasıdır.</p>
+<p><strong>Faz sarılması: <code>windup_raw()</code> ve <code>unwrap_by_arc()</code></strong></p>
+<p>GPS sinyali dairesel kutuplanmıştır; uydu ya da alıcı anteni kendi ekseni etrafında dönerse faz da o kadar değişir. <code>windup_raw()</code> iki antenin "yönelim vektörlerini" (Wu vd. 1993) kurup aralarındaki açıyı devir cinsinden verir. Bu açı −0,5 ile +0,5 devir arasında sıkışık gelir; <code>unwrap_by_arc()</code> her yay boyunca sıçramaları kaldırıp sürekli hale getirir. Etki yalnız faza uygulanır, koda uygulanmaz.</p>
+<p><strong>Hepsi pipeline.py'de nasıl birleşiyor ("6. kombinasyonlar ve 4B")</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">L3 = a3 * L1m + b3 * L2m                 <span class="c"># iyonosferden bagimsiz faz [m]</span>
+P3 = a3 * P[<span class="s">&quot;P1&quot;</span>] + b3 * P[<span class="s">&quot;P2&quot;</span>]         <span class="c"># iyonosferden bagimsiz kod [m]</span>
+common = d_sat + d_tide + d_shap         <span class="c"># uydu anteni + gelgit + Shapiro</span>
+corr_P3 = d_rec3 + common                <span class="c"># koda eklenecek toplam duzeltme</span>
+corr_L3 = corr_P3 + d_wu3                <span class="c"># faza: ayrica faz sarilmasi</span>
+</code></pre></div>
+<p><code>a3</code> = 2,546 ve <code>b3</code> = −1,546 katsayıları iyonosferi yok eden L3 kombinasyonunun katsayılarıdır. "4B" adı ödevdeki dört etkiden gelir: anten, gelgit, Shapiro, faz sarılması.</p>
+<p>Aynı dosyadaki <code>klobuchar()</code> ise yayın mesajındaki 8 katsayıyla iyonosfer gecikmesini kabaca hesaplar; yalnız tek frekans çözümlerinde kullanılır.</p>
+<h3 id="b9-7"><a class="m-anchor" href="#b9-7" aria-hidden="true">#</a>9.7 estimate.py: en küçük kareler</h3>
+<p>Konumun bulunduğu yer burası. Önce en basit fonksiyonla (kod çözümü) mantığı görelim; faz çözümü aynı mantığın büyütülmüş halidir.</p>
+<p><strong>En basit örnek: <code>spp_epoch()</code>, tek epokta kodla konum</strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">X = np.zeros(3) <span class="k">if</span> X0 is <span class="k">None</span> <span class="k">else</span> np.array(X0, float)   <span class="c"># baslangic tahmini (yoksa Dunya merkezi)</span>
+cdt = 0.0                                                <span class="c"># alici saat hatasi (metre)</span>
+<span class="k">for</span> _ <span class="k">in</span> range(iters):                                   <span class="c"># en cok 8 tur</span>
+    D = Xr - X                                           <span class="c"># aliciden uyduya vektorler</span>
+    rho = np.linalg.norm(D, axis=1)                      <span class="c"># hesaplanan uzakliklar</span>
+    u = D / rho[:, <span class="k">None</span>]                                 <span class="c"># birim yon vektorleri</span>
+    l = Ps - (rho + cdt - cdts + Tm)                     <span class="c"># olculen - hesaplanan</span>
+    A = np.column_stack([-u, np.ones(m)])                <span class="c"># tasarim matrisi: [-ux, -uy, -uz, 1]</span>
+    dx = np.linalg.lstsq(A, l, rcond=<span class="k">None</span>)[0]            <span class="c"># en kucuk kareler cozumu</span>
+    X += dx[:3]                                          <span class="c"># konumu duzelt</span>
+    cdt += dx[3]                                         <span class="c"># saati duzelt</span>
+    <span class="k">if</span> np.linalg.norm(dx[:3]) &lt; 1e-4:                    <span class="c"># duzeltme 0,1 mm'den kucukse dur</span>
+        <span class="k">break</span>
+</code></pre></div>
+<p>Türkçeye çevirirsek:</p>
+<ol>
+<li>Alıcının nerede olduğunu kabaca tahmin et (<code>X</code>) ve saatini sıfır say.</li>
+<li>Bu tahminle her uyduya uzaklığı hesapla (<code>rho</code>). Ölçülen kodla karşılaştır: fark <code>l</code>.</li>
+<li>Farkı en iyi açıklayan konum ve saat değişikliğini bul. <code>A</code> matrisinin her satırı "alıcı x yönünde 1 m kayarsa bu uyduya uzaklık ne kadar değişir" sorusunun cevabıdır; bu, uyduya giden yönün eksisidir. Son sütundaki 1, saat hatasının bütün uydulara aynı etkisidir.</li>
+<li>Tahmini düzelt ve 2. adıma dön. Her turda düzeltme küçülür; 0,1 mm'nin altına inince dur. Başlangıç Dünya'nın merkezi bile olsa 4–5 turda doğru yere varılır.</li>
+</ol>
+<p>Dört bilinmeyen (X, Y, Z, saat) olduğu için en az 4 uydu gerekir; fonksiyonun başındaki <code>if m &lt; 4: return None</code> bunu denetler.</p>
+<p><strong>ISTA'da 13:15:00 epoğuyla gerçekten çalıştırınca</strong> (8 uydu, P3 kodu, başlangıç tahmini Dünya'nın merkezi, troposfer eklenmeden) her turda şu olur:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Tur</th>
+<th>Konum düzeltmesi |dx|</th>
+<th>Bulunan X [m]</th>
+<th>Bulunan saat c·dt [m]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>7 588 605 m</td>
+<td>4 944 467</td>
+<td>1 496 796</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1 185 723 m</td>
+<td>4 227 452</td>
+<td>260 240</td>
+</tr>
+<tr>
+<td>3</td>
+<td>37 017 m</td>
+<td>4 208 857</td>
+<td>219 591</td>
+</tr>
+<tr>
+<td>4</td>
+<td>36,6 m</td>
+<td>4 208 840,55</td>
+<td>219 551,7</td>
+</tr>
+<tr>
+<td>5</td>
+<td>0,000 m</td>
+<td>4 208 840,55</td>
+<td>219 551,7</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>1. turda program Dünya'nın merkezinden yüzeye 7 600 km atlar. Tahmin çok kötü olduğu için sonuç da henüz kaba.</li>
+<li>Her tur bir öncekinin hatasını büyük ölçüde siler: 7 600 km → 1 200 km → 37 km → 37 m → 0. Bu, "ölçüleri doğrusallaştır, çöz, düzelt, tekrarla" yönteminin (Gauss-Newton) tipik davranışıdır.</li>
+<li>Saat 219 551,7 m çıktı; ışık hızına bölünce 732 µs. Faz çözümünün bulgusu 732 311 ns, yani aynı değer.</li>
+<li>Konum gerçek konumdan yaklaşık 12 m uzakta, çünkü bu denemede troposfer (2,5 m başucunda, alçak uydularda 10 m'yi aşan) eklenmedi. Sitedeki kod çözümü troposferi eklediği için birkaç metre doğruluğa iner.</li>
+</ul>
+<p>Son turdaki <code>A</code> matrisinin ilk satırı [−0,370, 0,643, −0,670, 1]. İlk üç sayı alıcıdan G27'ye giden yönün eksisidir (karelerinin toplamı 1). Anlamı: alıcıyı Y yönünde 1 m kaydırırsak G27'ye uzaklık 0,643 m değişir. Son sayı 1: saati 1 m (3,3 ns) artırırsak bütün kod ölçüleri 1 m uzar.</p>
+<p><strong>DOP: <code>dop()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">G = np.column_stack([-u, np.ones(len(u))])        <span class="c"># spp ile ayni tasarim matrisi</span>
+Q = np.linalg.inv(G.T @ G)                        <span class="c"># kofaktor matrisi</span>
+Qn = Rneu @ Q[:3, :3] @ Rneu.T                    <span class="c"># XYZ'den kuzey-dogu-yukari'ya cevir</span>
+GDOP = sqrt(trace(Q)); PDOP = sqrt(Q11+Q22+Q33); HDOP = sqrt(QN + QE); VDOP = sqrt(QU); TDOP = sqrt(Q44)
+</code></pre></div>
+<p>DOP yalnız uyduların gökteki dağılımına bağlıdır, ölçülere bağlı değildir. Uydular göğün bir köşesine toplanmışsa <code>G</code> matrisinin sütunları birbirine benzer, <code>Q</code> büyür ve DOP değerleri artar.</p>
+<p><strong>Asıl iş: <code>phase_solution()</code>, faz + kod en küçük kareleri</strong></p>
+<p>Aynı fikir, ama bu kez binlerce epok, hem faz hem kod ve çok daha fazla bilinmeyen var. Her kayıt için iki gözlem denklemi kurulur:</p>
+<div class="m-formula" role="math" aria-label="L3 ve P3 gözlem denklemleri">
+<div>L<sub>3</sub> = ρ + c·dt<sub>r</sub> − c·dt<sup>s</sup> + T<sub>model</sub> + m<sub>w</sub>·ZWD + ISB + B<sub>yay</sub> + d<sub>L3</sub> + v</div>
+<div>P<sub>3</sub> = ρ + c·dt<sub>r</sub> − c·dt<sup>s</sup> + T<sub>model</sub> + m<sub>w</sub>·ZWD + ISB + d<sub>P3</sub> + v</div>
+</div>
+
+<p>Kodda bu, "ölçülen eksi hesaplanan" vektörü olarak görünür:</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">com = rho + clk[ie] - cdts + Tm + zwd[iz] * mw + isb * isE        <span class="c"># faz ve kodda ortak kisim</span>
+l = np.concatenate([phase - (com + B[iy] + corr_phase),            <span class="c"># faz satirlari</span>
+                    code  - (com + corr_code)])                    <span class="c"># kod satirlari</span>
+p = np.concatenate([s2 / sig_phase ** 2, s2 / sig_code ** 2])     <span class="c"># agirliklar: sin^2(E) / sigma^2</span>
+</code></pre></div>
+<ul>
+<li><code>ie</code>, <code>iy</code>, <code>iz</code>: her kaydın hangi epoğa, hangi yaya ve hangi 2 saatlik troposfer aralığına ait olduğunu söyleyen numaralar. <code>clk[ie]</code> "her kayda kendi epoğunun saatini koy" demektir.</li>
+<li>Ağırlık: Fazın doğruluğu 1 cm, kodunki 1 m alınır; faz 10 000 kat ağır basar. Alçak uydular <code>sin²E</code> ile zayıflatılır (10°'de ağırlık başucundakinin 0,03 katı).</li>
+<li>Kod denklemleri neden var? Faz tek başına saat ile belirsizliği birbirinden ayıramaz (ikisi de sabit gibi davranır). Düşük ağırlıklı kod bu bağı çözer.</li>
+</ul>
+<p>Bilinmeyenler iki gruba ayrılır:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Grup</th>
+<th>Bilinmeyenler</th>
+<th>ISTA örneğinde sayısı</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epok parametreleri (her epokta yeni)</td>
+<td>Alıcı saati; kinematik çözümde ayrıca o epoğun X, Y, Z'si</td>
+<td>95 saat + 3 (13:15'teki ayrı konum)</td>
+</tr>
+<tr>
+<td>Global parametreler (bütün veri için)</td>
+<td>Statik konum (3), 2 saatlik ıslak troposfer, GPS–Galileo saat farkı, her yayın belirsizliği</td>
+<td>3 + 12 + 48</td>
+</tr>
+</tbody>
+</table></div>
+<p>Bütün bilinmeyenleri tek bir dev matriste çözmek 1 saniyelik günlük veride (86 400 epok) bellek yetmeyeceği için imkânsızdır. Kod bunu şöyle çözer:</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">Nee[e]  = 4x4 normal matris, yalniz e. epogun parametreleri icin      <span class="c"># her epok kendi kucuk matrisi</span>
+Nred = Ngg - sum_e( Nge[e] @ inv(Nee[e]) @ Neg[e] )                    <span class="c"># epok parametrelerini ele</span>
+bred = bg  - sum_e( Nge[e] @ inv(Nee[e]) @ be[e] )
+dg = np.linalg.solve(Nred, bred)                                       <span class="c"># once global bilinmeyenler</span>
+de[e] = inv(Nee[e]) @ (be[e] - Neg[e] @ dg)                            <span class="c"># sonra her epok geri hesaplanir</span>
+</code></pre></div>
+<p>Bu, ders kitaplarındaki "parametre eleme" (ön eliminasyon) yöntemidir:</p>
+<ol>
+<li>Her epok için yalnız o epoğa ait küçük 4×4'lük normal denklem kurulur (saat + kinematikte konum).</li>
+<li>Bu küçük denklemler, global denklemlerden "çıkarılır". Geriye yalnız global bilinmeyenleri içeren, ama epok parametrelerinin etkisini taşıyan küçük bir sistem (<code>Nred</code>) kalır.</li>
+<li>Bu sistem çözülür: konum, troposfer ve belirsizlikler bulunur.</li>
+<li>Bulunanlar her epoğa geri konup o epoğun saati (ve kinematikte konumu) hesaplanır.</li>
+</ol>
+<p><strong>Parametre elemeyi oyuncak bir örnekle görelim.</strong> Bir tane global bilinmeyen (konum düzeltmesi x) ve iki epok saati (c₁, c₂) olsun. Her epokta iki uydu var:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Epok</th>
+<th>Denklem</th>
+<th>Ölçü</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1,0·x + c₁</td>
+<td>5,30</td>
+</tr>
+<tr>
+<td>1</td>
+<td>−1,0·x + c₁</td>
+<td>2,90</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0,5·x + c₂</td>
+<td>−1,40</td>
+</tr>
+<tr>
+<td>2</td>
+<td>−0,8·x + c₂</td>
+<td>−2,96</td>
+</tr>
+</tbody>
+</table></div>
+<ol>
+<li><strong>Epok içinde saati ele:</strong> 1. epokta iki denklemi birbirinden çıkarınca c₁ yok olur: 5,30 − 2,90 = 2,0·x, yani 2,40 = 2x. 2. epokta da: −1,40 − (−2,96) = 1,3·x, yani 1,56 = 1,3x.</li>
+<li><strong>Global bilinmeyeni çöz:</strong> İki denklem de x = 1,2 diyor. (Gerçek veride binlerce denklem olur ve birbirini tam tutmaz; o zaman en küçük kareler ortalaması alınır.)</li>
+<li><strong>Geri yerine koy:</strong> c₁ = 5,30 − 1,2 = 4,10 ve c₂ = −1,40 − 0,5 × 1,2 = −2,00.</li>
+</ol>
+<p>Koddaki <code>Nred</code> ve <code>de</code> satırları bunun matris halidir. Sezgisel anlamı: <strong>saat parametresini elemek, o epoktaki uydular arasında fark almakla aynı şeydir.</strong> Alıcı saati bir epokta bütün uydulara aynı miktarda etki eder; uydular arası farkta görünmez. Konum, troposfer ve belirsizlikler bu farklardan bulunur, saat en sonda geri hesaplanır.</p>
+<p>Sonuç, hepsini birden çözmekle matematiksel olarak aynıdır. Kodun geri kalanı (<code>np.add.at</code> satırları) bu matrisleri döngüsüz, hızlı doldurmak içindir; mantığı yukarıdaki dört satırdır.</p>
+<p>Dıştaki <code>for it in range(iters)</code> döngüsü SPP'deki gibi tahmini düzeltip yeniden kurar; konum düzeltmesi 0,01 mm'nin altına inince durur (ISTA'da ilk turda 26 cm, ikinci turda 0). Sonunda:</p>
+<ul>
+<li><code>v</code>: artıklar (ölçü ile modelin farkı). Faz çözümü sekmesindeki "L3 faz düzeltmeleri" grafiği budur.</li>
+<li><code>s0 = sqrt(Σ p v² / serbestlik derecesi)</code>: modelin ölçülere uyumu.</li>
+<li><code>Qgg = inv(Nred)</code>: global bilinmeyenlerin kovaryansı. Koordinatların yanındaki "± 2,2 mm" <code>s0 * sqrt(köşegen)</code> ile buradan gelir.</li>
+</ul>
+<h3 id="b9-8"><a class="m-anchor" href="#b9-8" aria-hidden="true">#</a>9.8 pipeline.py: iyonosfer ve çok yolluluk</h3>
+<p>Bu iki hesap konum çözümünden sonra, raporlama için yapılır. İkisi de pipeline.py'nin sonundaki yardımcı fonksiyonlardadır.</p>
+<p><strong>İyonosfer: <code>_ionosphere()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">P4 = P[<span class="s">&quot;P2&quot;</span>] - P[<span class="s">&quot;P1&quot;</span>]                              <span class="c"># kodla iyonosfer: gurultulu ama mutlak</span>
+GF = P[<span class="s">&quot;GF&quot;</span>]                                        <span class="c"># fazla iyonosfer: hassas ama sabiti bilinmiyor</span>
+<span class="k">for</span> a <span class="k">in</span> arcs:                                      <span class="c"># her yay icin</span>
+    c0 = np.sum((P4[mm] - GF[mm]) * w[mm]) / np.sum(w[mm])   <span class="c"># kod ile fazin agirlikli ortalama farki</span>
+    lev[mm] = GF[mm] + c0                           <span class="c"># fazi koda &quot;seviyele&quot;</span>
+</code></pre></div>
+<p>Buradaki fikir kod-faz birleştirmenin en güzel örneğidir. Kodla bulunan iyonosfer (<code>P4</code>) doğru seviyededir ama metrelerce gürültülüdür. Fazla bulunan (<code>GF</code>) pürüzsüzdür ama bilinmeyen bir sabitle kaymıştır. Her yayda faz eğrisi, kod noktalarının ortasından geçecek kadar yukarı ya da aşağı kaydırılır. Sonuç hem pürüzsüz hem doğru seviyede bir iyonosfer eğrisidir (İyonosfer sekmesindeki "koda seviyelenmiş faz" grafiği).</p>
+<p><strong>Seviyelemeyi elle yapalım.</strong> Bir yayda 4 epok olsun (kolaylık için ağırlıklar eşit):</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Epok</th>
+<th>P4 = P2 − P1 [m]</th>
+<th>GF [m]</th>
+<th>P4 − GF</th>
+<th>Seviyelenmiş lev = GF + c₀</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>3,4</td>
+<td>−6339,80</td>
+<td>6343,20</td>
+<td>2,98</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2,1</td>
+<td>−6339,79</td>
+<td>6341,89</td>
+<td>2,99</td>
+</tr>
+<tr>
+<td>3</td>
+<td>3,9</td>
+<td>−6339,77</td>
+<td>6343,67</td>
+<td>3,01</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2,6</td>
+<td>−6339,76</td>
+<td>6342,36</td>
+<td>3,02</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><code>c0</code> = (6343,20 + 6341,89 + 6343,67 + 6342,36) / 4 = <strong>6342,78</strong>: kod ile fazın ortalama farkı.</li>
+<li>Kodun iyonosferi (P4) 2,1 ile 3,9 m arasında zıplıyor. Fazın iyonosferi (GF) pürüzsüz ama −6339 gibi anlamsız bir seviyede.</li>
+<li>Son sütun ikisinin iyi yanını birleştirir: 2,98 → 3,02, hem pürüzsüz hem doğru seviyede.</li>
+<li>Bu metreyi TEC'e çevirmek için (γ₂ − 1) = 0,647'ye ve 1 TECU'nun L1'deki karşılığı 0,162 m'ye bölünür: 2,98 / 0,647 / 0,162 ≈ 28 TECU (henüz DCB çıkarılmamış eğik değer).</li>
+</ul>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">sz = R / (R + Hs) * np.cos(E)                       <span class="c"># Hs = 450 km: ince tabaka yuksekligi</span>
+M = 1 / np.sqrt(1 - sz ** 2)                        <span class="c"># egik -&gt; dusey donusum katsayisi</span>
+psi = np.pi / 2 - E - np.arcsin(sz)                 <span class="c"># istasyon ile delme noktasi arasindaki aci</span>
+fi = np.arcsin(np.sin(lat0) * np.cos(psi) + ...)    <span class="c"># delme noktasinin enlemi</span>
+la = lon0 + np.arcsin(np.sin(psi) * np.sin(A) / np.cos(fi))   <span class="c"># ve boylami</span>
+stec_raw = (lev + C * 1e-9 * dcbs) / k4 / TECU_L1   <span class="c"># egik TEC (uydu DCB'si cikarilmis), TECU</span>
+</code></pre></div>
+<ul>
+<li>İyonosferin tümü 450 km yükseklikte kağıt inceliğinde bir tabakaymış gibi düşünülür. Sinyalin bu tabakayı deldiği nokta (IPP) her uydu için farklıdır.</li>
+<li><code>M</code>, eğik yolu düşey değere çeviren katsayıdır (başucunda 1, alçakta yaklaşık 3).</li>
+<li><code>stec_raw</code>: metreyi TECU'ya çevirir. Uydu DCB'leri ya dosyadan okunur ya da <code>_estimate_sat_dcb()</code> ile bütün günün verisinden kestirilir. DCB'ler tek başına belirlenemez (hepsine aynı sabiti eklemek sonucu değiştirmez); bu yüzden "uydu DCB'lerinin toplamı sıfır" koşulu eklenir. CODE da aynı koşulu kullandığı için kestirilen değerler CODE'unkilerle karşılaştırılabilir.</li>
+</ul>
+<p>Son olarak seçilen epoğun ±2 saati içindeki ölçülerle küçük bir en küçük kareler daha çözülür. Bilinmeyenler: istasyon üzerindeki VTEC, onun saatlik değişimi, enlem ve boylam yönündeki eğimi ve alıcı DCB'si. Özetteki "İstasyon üzerinde VTEC 19,74 TECU" ve "Alıcı DCB'si −10,28 ns" bu çözümün sonucudur.</p>
+<p><strong>Çok yolluluk: <code>_multipath()</code></strong></p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python">k = 2 / (GAMMA - 1)                                 <span class="c"># 3,0915</span>
+MP1 = P1r - (1 + k) * F1m + k * F2m                 <span class="c"># P1 - 4,0915 L1 + 3,0915 L2  [m]</span>
+MP2 = P2r - GAMMA * k * F1m + (GAMMA * k - 1) * F2m <span class="c"># P2 - 5,0915 L1 + 4,0915 L2  [m]</span>
+<span class="k">for</span> a <span class="k">in</span> np.unique(P[<span class="s">&quot;arc&quot;</span>][m]):
+    MP1[mm] -= MP1[mm].mean()                       <span class="c"># her yayin ortalamasini cikar</span>
+    MP2[mm] -= MP2[mm].mean()
+</code></pre></div>
+<ul>
+<li>Katsayılar öyle seçilmiştir ki kombinasyonda uzaklık, saatler, troposfer ve iyonosfer tamamen yok olur. Geriye kodun çok yolluluğu ve gürültüsü, artı faz belirsizliklerinden gelen bir sabit kalır.</li>
+<li>O sabit her yay boyunca değişmediği için yay ortalaması çıkarılarak atılır. Bu yüzden kopma tespiti burada önemlidir: kopma kaçarsa yayın ortasında sabit değişir ve MP değerleri sahte olarak büyür.</li>
+<li><code>P1r</code>, <code>P2r</code> ham kodlardır (Kalman filtresinden önceki). Çok yolluluk ham kodun bir özelliği olduğu için süzülmüş kod kullanılmaz.</li>
+<li>Fonksiyonun geri kalanı RMS'leri hesaplar: seçilen epokta, bütün günde, yükseklik açısı aralıklarında (0–10°, 10–20°, …) ve uydu başına.</li>
+</ul>
+<p><strong>Katsayılar neden 4,0915 ve 3,0915?</strong> MP1 = P1 − 4,0915·λ₁L1 + 3,0915·λ₂L2 kombinasyonuna her etkiyi tek tek koyalım. Her ölçüde etkinin katı: P1'de 1, λ₁L1'de 1, λ₂L2'de 1 (iyonosferde işaret ve büyüklük farklı).</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Etki</th>
+<th>P1'de</th>
+<th>λ₁L1'de</th>
+<th>λ₂L2'de</th>
+<th>MP1'deki toplam</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Uzaklık, saatler, troposfer (ρ)</td>
+<td>+ρ</td>
+<td>+ρ</td>
+<td>+ρ</td>
+<td>ρ − 4,0915ρ + 3,0915ρ = <strong>0</strong></td>
+</tr>
+<tr>
+<td>İyonosfer (I)</td>
+<td>+I</td>
+<td>−I</td>
+<td>−1,6469·I</td>
+<td>I + 4,0915·I − 3,0915 × 1,6469·I = 5,0915·I − 5,0915·I = <strong>0</strong></td>
+</tr>
+<tr>
+<td>Faz belirsizlikleri</td>
+<td>–</td>
+<td>+N₁λ₁</td>
+<td>+N₂λ₂</td>
+<td>bir yay boyunca <strong>sabit</strong></td>
+</tr>
+<tr>
+<td>Kod çok yolluluğu ve gürültüsü</td>
+<td>+MP</td>
+<td>– (fazınki mm)</td>
+<td>–</td>
+<td><strong>MP</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Yani katsayılar uzaklığı ve iyonosferi aynı anda sıfırlayacak şekilde seçilmiştir; 3,0915 = 2 / (γ₂ − 1). Geriye kalan sabit, yay ortalaması çıkarılarak atılır ve aranan şey, kodun çok yolluluğu, tek başına kalır.</p>
+<h3 id="b9-9"><a class="m-anchor" href="#b9-9" aria-hidden="true">#</a>9.9 Kendin dene: modülleri tek tek çağırmak</h3>
+<p>Kodu anlamanın en iyi yolu parçaları tek tek çalıştırıp ara sonuçlara bakmaktır. Aşağıdaki kod Google Colab'da (ya da numpy kurulu herhangi bir Python'da) olduğu gibi çalışır. Colab'da yeni bir defter aç, ilk hücreye şunu yaz ve çalıştır:</p>
+<div class="m-code"><span class="m-lang">komut</span><pre><code class="language-bash">!git clone https://github.com/salihtatci/fazPPP
+</code></pre></div>
+<p>Sonra ikinci hücreye:</p>
+<div class="m-code"><span class="m-lang">Python</span><pre><code class="language-python"><span class="k">import</span> sys, numpy <span class="k">as</span> np
+sys.path.insert(0, <span class="s">&quot;fazPPP/py&quot;</span>)                      <span class="c"># Python'a paketin yerini goster</span>
+<span class="k">from</span> gnssfaz <span class="k">import</span> readers, preprocess, orbit, pipeline
+<span class="k">from</span> gnssfaz.timeutil <span class="k">import</span> fmt
+
+klasor = <span class="s">&quot;fazPPP/examples/ista_2014_240/&quot;</span>
+oku = <span class="k">lambda</span> ad: open(klasor + ad, encoding=<span class="s">&quot;latin-1&quot;</span>).read()   <span class="c"># dosyayi metin olarak oku</span>
+
+<span class="c"># 1) gozlem dosyasini oku</span>
+obs = readers.read_obs(oku(<span class="s">&quot;ISTA2400.14o&quot;</span>))
+print(<span class="s">&quot;kayit sayisi:&quot;</span>, len(obs[<span class="s">&quot;t&quot;</span>]), <span class="s">&quot; istasyon:&quot;</span>, obs[<span class="s">&quot;header&quot;</span>][<span class="s">&quot;marker&quot;</span>])
+
+<span class="c"># 2) on isleme</span>
+P = preprocess.preprocess(obs)
+print(<span class="s">&quot;yay sayisi:&quot;</span>, P[<span class="s">&quot;stats&quot;</span>][<span class="s">&quot;n_arcs&quot;</span>], <span class="s">&quot; saat sicramasi:&quot;</span>, len(P[<span class="s">&quot;jumps&quot;</span>]))
+
+<span class="c"># 3) G29'un yaylari</span>
+m = P[<span class="s">&quot;prn&quot;</span>] == 29
+<span class="k">for</span> a <span class="k">in</span> np.unique(P[<span class="s">&quot;arc&quot;</span>][m]):
+    k = m &amp; (P[<span class="s">&quot;arc&quot;</span>] == a)
+    print(<span class="s">&quot;  yay&quot;</span>, a, fmt(P[<span class="s">&quot;t&quot;</span>][k].min()), <span class="s">&quot;-&quot;</span>, fmt(P[<span class="s">&quot;t&quot;</span>][k].max()), <span class="s">&quot;epok:&quot;</span>, k.sum())
+
+<span class="c"># 4) G29'un 13:15'teki konumu</span>
+sp3 = readers.read_sp3([oku(<span class="s">&quot;igs18074.sp3&quot;</span>)])
+t1315 = P[<span class="s">&quot;t&quot;</span>].min() - P[<span class="s">&quot;t&quot;</span>].min() % 86400 + 13*3600 + 15*60
+pos, vel = orbit.sp3_interp(sp3, 29, np.array([t1315]))
+print(<span class="s">&quot;G29 konumu [m]:&quot;</span>, pos[0].round(3))
+
+<span class="c"># 5) butun hesap</span>
+files = {<span class="s">&quot;obs&quot;</span>: oku(<span class="s">&quot;ISTA2400.14o&quot;</span>), <span class="s">&quot;sp3&quot;</span>: [oku(<span class="s">&quot;igs18074.sp3&quot;</span>)],
+         <span class="s">&quot;nav&quot;</span>: oku(<span class="s">&quot;ISTA2400.14n&quot;</span>), <span class="s">&quot;met&quot;</span>: oku(<span class="s">&quot;ISTA2400.14m&quot;</span>)}
+res = pipeline.run(files, {<span class="s">&quot;epoch&quot;</span>: <span class="s">&quot;13:15:00&quot;</span>},
+                   default_atx={<span class="s">&quot;igs08&quot;</span>: <span class="s">&quot;fazPPP/data/igs08.atx.gz&quot;</span>, <span class="s">&quot;igs20&quot;</span>: <span class="s">&quot;fazPPP/data/igs20.atx.gz&quot;</span>})
+print(<span class="s">&quot;statik konum:&quot;</span>, res[<span class="s">&quot;l3&quot;</span>][<span class="s">&quot;X&quot;</span>], <span class="s">&quot; s0:&quot;</span>, res[<span class="s">&quot;l3&quot;</span>][<span class="s">&quot;s0&quot;</span>])
+</code></pre></div>
+<p>Beklenen çıktı:</p>
+<div class="m-code"><span class="m-lang">çıktı</span><pre><code class="language-text">kayit sayisi: 27171  istasyon: ISTA
+yay sayisi: 346  saat sicramasi: 10
+  yay 322 07:08:00 - 14:38:30 epok: 902
+G29 konumu [m]: [ 5596440.837 24890908.654  7491765.529]
+statik konum: [4208830.1379, 2334850.479, 4171267.3316]  s0: 0.382
+</code></pre></div>
+<p>Çıktıyı okumak:</p>
+<ul>
+<li>G29 gün boyunca tek bir yay halinde, 07:08–14:38 arası kopmadan izlenmiş (902 epok). Başka bir uydu numarası yazıp (örneğin 15) kopmaları olan uyduları bulabilirsin.</li>
+<li>4. adım 13:15'in kendisindeki konumu verir. Gerçek hesapta gönderim anı 70 ms daha öncedir (<a href="#b9-5">Bölüm 9.5</a>).</li>
+<li>5. adım sitedeki bütün hesabı yapar; konum sitedekiyle aynıdır.</li>
+</ul>
+<p><code>res</code> sözlüğündeki anahtarlar sitedeki sekmelerle eşleşir:</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Anahtar</th>
+<th>İçeriği</th>
+<th>Sitedeki yeri</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>res["l3"]</code></td>
+<td>Faz çözümü: konum, σ, saat, ZTD, DOP, s₀</td>
+<td>Özet, Faz çözümü</td>
+</tr>
+<tr>
+<td><code>res["solutions"]</code></td>
+<td>Bütün çözümlerin listesi ve referansa göre farkları</td>
+<td>Özet, karşılaştırma tablosu</td>
+</tr>
+<tr>
+<td><code>res["pre"]</code></td>
+<td>Ön işleme sayıları, saat sıçramaları, yaylar</td>
+<td>Veri ve ön işleme</td>
+</tr>
+<tr>
+<td><code>res["codefilter"]</code></td>
+<td>Kalman filtresi raporu</td>
+<td>Kalman filtresi</td>
+</tr>
+<tr>
+<td><code>res["orbit"]</code></td>
+<td>Seçilen epokta uydu konumları ve kaba kontrol</td>
+<td>Uydular</td>
+</tr>
+<tr>
+<td><code>res["atm"]</code>, <code>res["corr"]</code></td>
+<td>Troposfer ve düzeltme tabloları</td>
+<td>Troposfer, Düzeltmeler</td>
+</tr>
+<tr>
+<td><code>res["iono"]</code></td>
+<td>VTEC, DCB'ler, IPP tablosu</td>
+<td>İyonosfer</td>
+</tr>
+<tr>
+<td><code>res["single"]</code></td>
+<td>Tek frekans çözümleri</td>
+<td>Tek frekans</td>
+</tr>
+<tr>
+<td><code>res["mp"]</code></td>
+<td>MP1, MP2 istatistikleri</td>
+<td>Çok yolluluk</td>
+</tr>
+<tr>
+<td><code>res["spp"]</code></td>
+<td>Kod çözümü</td>
+<td>Kod çözümü</td>
+</tr>
+<tr>
+<td><code>res["kin"]</code></td>
+<td>Kinematik rota (yalnız kinematik çözümde)</td>
+<td>Kinematik rota</td>
+</tr>
+<tr>
+<td><code>res["meta"]</code></td>
+<td>Uyarılar, ayarlar, hesap süresi</td>
+<td>Özet, Uyarılar</td>
+</tr>
+<tr>
+<td><code>res["plots"]</code></td>
+<td>Grafiklerin verisi</td>
+<td>Grafikler</td>
+</tr>
+</tbody>
+</table></div>
+<p>Örneğin <code>res["meta"]["warnings"]</code> uyarıları, <code>res["pre"]["jumps"]</code> saat sıçramaları tablosunu verir. Bir ayarı değiştirip etkisini görmek için <code>pipeline.run</code> çağrısındaki sözlüğe ekle: <code>{"epoch": "13:15:00", "cutoff": 15, "code_kf": False}</code>.</p>
+<h2 id="b10"><a class="m-anchor" href="#b10" aria-hidden="true">#</a>10. Komut satırından kullanım</h2>
+<p>Aynı hesap tarayıcı olmadan, bilgisayarındaki Python ile de yapılabilir. Çok sayıda dosyayı sırayla işlemek ya da sonucu başka bir koda vermek için kullanışlıdır. Sonuç sitedekiyle birebir aynıdır, çünkü aynı Python paketi çalışır.</p>
+<ol>
+<li>Bilgisayarında Python 3 kurulu olsun. Komut penceresinde <code>pip install numpy</code> yaz.</li>
+<li>Repoyu indir: GitHub sayfasında <strong>Code → Download ZIP</strong>, sonra zip'i bir klasöre aç.</li>
+<li>Komut penceresinde o klasöre geç ve örneği çalıştır:</li>
+</ol>
+<div class="m-code"><span class="m-lang">komut</span><pre><code class="language-bash">python py/cli.py examples/ista_2014_240/ISTA2400.14o examples/ista_2014_240/igs18074.sp3 --nav examples/ista_2014_240/ISTA2400.14n --met examples/ista_2014_240/ISTA2400.14m --epoch 13:15:00 --out sonuc.json
+</code></pre></div>
+<p>Hesap sırasında adımlar yüzdeyle ekrana yazılır, sonunda özet basar:</p>
+<div class="m-code"><span class="m-lang">çıktı</span><pre><code class="language-text">Statik L3 : X=4208830.1379 Y=2334850.4790 Z=4171267.3316
+s0=0.382  faz RMS=12.7 mm  kod RMS=0.75 m
+Kod Kalman filtresi (tau=100 s): P1 0.578 -&gt; 0.271 m, P2 0.612 -&gt; 0.266 m, atilan 25, yeniden baslatma 2
+Kinematik 13:15:00: X=4208830.1808 Y=2334850.4870 Z=4171267.3544
+Sonuc: sonuc.json
+</code></pre></div>
+<p>Bütün sonuçlar <code>sonuc.json</code> dosyasına yazılır; bu, sitedeki JSON düğmesinin indirdiği dosyayla aynı yapıdadır.</p>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Seçenek</th>
+<th>Anlamı</th>
+<th>Sitedeki karşılığı</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ilk iki ad (zorunlu)</td>
+<td>gözlem dosyası, bir ya da daha çok SP3</td>
+<td>Gözlem ve SP3 kutuları</td>
+</tr>
+<tr>
+<td>--clk</td>
+<td>bir ya da daha çok saat dosyası</td>
+<td>Saat (CLK) kutusu</td>
+</tr>
+<tr>
+<td>--nav, --met, --atx, --dcb</td>
+<td>isteğe bağlı dosyalar</td>
+<td>ilgili kutular</td>
+</tr>
+<tr>
+<td>--mode auto, static, kinematic</td>
+<td>çözüm türü (varsayılan auto)</td>
+<td>Çözüm türü</td>
+</tr>
+<tr>
+<td>--systems G ya da GE</td>
+<td>uydu sistemleri (varsayılan GE)</td>
+<td>Uydu sistemleri</td>
+</tr>
+<tr>
+<td>--epoch SS:DD:ss</td>
+<td>hesap epoğu</td>
+<td>Hesap epoğu</td>
+</tr>
+<tr>
+<td>--cutoff</td>
+<td>yükseklik açısı sınırı, derece (varsayılan 10)</td>
+<td>Yükseklik açısı sınırı</td>
+</tr>
+<tr>
+<td>--ref X Y Z</td>
+<td>referans koordinat, metre</td>
+<td>Referans koordinat</td>
+</tr>
+<tr>
+<td>--rate</td>
+<td>işlem aralığı, saniye</td>
+<td>Gelişmiş → İşlem aralığı</td>
+</tr>
+<tr>
+<td>--min-arc</td>
+<td>en kısa yay, dakika</td>
+<td>Gelişmiş → En kısa yay</td>
+</tr>
+<tr>
+<td>--no-code-kf</td>
+<td>Kalman filtresini kapatır</td>
+<td>Kalman filtresi kutucuğu</td>
+</tr>
+<tr>
+<td>--code-kf-tau</td>
+<td>filtre zaman sabiti, saniye (varsayılan 100)</td>
+<td>τ kutusu</td>
+</tr>
+<tr>
+<td>--out</td>
+<td>sonuç dosyasının adı (varsayılan fazppp_sonuc.json)</td>
+<td>JSON düğmesi</td>
+</tr>
+</tbody>
+</table></div>
+<p>Faz ve kod ölçü doğruluğu, ıslak troposfer aralığı ve kod çözümü aralığının komut satırı seçeneği yoktur; varsayılan değerler (0,01 m, 1,0 m, 2 saat, 300 s) kullanılır. Hareketli alıcı için örnek: <code>python py/cli.py gozlem.23O yorunge.SP3.gz --clk saat.CLK.gz --mode kinematic</code>.</p>
+<h2 id="b11"><a class="m-anchor" href="#b11" aria-hidden="true">#</a>11. Sık karşılaşılan hatalar ve çözümleri</h2>
+<p>Hesap tamamlanamazsa Hesapla düğmesinin altında kırmızı bir "Hesap tamamlanamadı" kutusu çıkar. Kutudaki cümle sorunu söyler; "Teknik ayrıntı" açılırsa Python'un hata kaydı görünür (bir hatayı bildirirken bunu kopyala).</p>
+<h3 id="hesabi-durduran-hatalar"><a class="m-anchor" href="#hesabi-durduran-hatalar" aria-hidden="true">#</a>Hesabı durduran hatalar</h3>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Ekrandaki mesaj (kısaltılmış)</th>
+<th>Neden olur</th>
+<th>Ne yaparsın</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Önce gözlem ve SP3 dosyalarını yükleyin</td>
+<td>Zorunlu iki dosyadan biri eksik</td>
+<td>Gözlem ve SP3 kutularının ikisi de dolu olsun</td>
+</tr>
+<tr>
+<td>Python ortamı başlatılamadı</td>
+<td>İnternet yok ya da Pyodide indirilemedi</td>
+<td>Bağlantıyı kontrol et, sayfayı yenile. Şirket ya da okul ağında cdn.jsdelivr.net engelli olabilir.</td>
+</tr>
+<tr>
+<td>Gözlem dosyası RINEX biçiminde değil / bir gözlem (O) dosyası değil</td>
+<td>Kutuya yanlış dosya kondu (örneğin navigasyon dosyası gözlem kutusuna)</td>
+<td>Dosya adının son harfine bak: gözlem o ya da d, navigasyon n, meteoroloji m</td>
+</tr>
+<tr>
+<td>Hatanaka sıkıştırmalı gözlem dosyası açılamadı</td>
+<td>Dosya yarım inmiş ya da bozuk</td>
+<td>Dosyayı yeniden indir</td>
+</tr>
+<tr>
+<td>Dosyada L1 fazı veya L1 kodu yok / P1, P2, L1 ve L2 birlikte bulunan kayıt yok</td>
+<td>Dosya tek frekanslı ya da yalnız kod içeriyor</td>
+<td>Program çift frekanslı faz verisi ister; başka dosya kullan</td>
+</tr>
+<tr>
+<td>SP3 (veya saat) dosyası gözlem günüyle örtüşmüyor</td>
+<td>SP3 başka bir güne ait</td>
+<td><a href="#b2">Bölüm 2</a>'deki gibi dosya adından günü kontrol et, doğru günün SP3'ünü indir</td>
+</tr>
+<tr>
+<td>Saat dosyasında gözlem aralığına düşen uydu saati yok</td>
+<td>CLK başka bir güne ait</td>
+<td>Aynı günün CLK dosyasını yükle ya da CLK kutusunu boşalt</td>
+</tr>
+<tr>
+<td>Yaklaşık konum bulunamadı</td>
+<td>Başlıkta konum yok ve kod çözümü de olmadı</td>
+<td>Genelde SP3'ün yanlış günden olmasındandır; SP3'ü kontrol et</td>
+</tr>
+<tr>
+<td>Çözüm için yeterli ölçü yok</td>
+<td>Dosya çok kısa ya da yükseklik sınırı çok yüksek</td>
+<td>Yükseklik açısı sınırını 5°'ye indir; kısa dosyada CLK yükle ki her 30 s'de çözüm yapılsın</td>
+</tr>
+<tr>
+<td>Meteoroloji dosyasında basınç, sıcaklık veya nem eksik</td>
+<td>Dosyada PR, TD, HR'den biri yok</td>
+<td>Meteoroloji kutusunu boşalt; standart atmosfer kullanılır</td>
+</tr>
+<tr>
+<td>DCB dosyası okunamadı</td>
+<td>CODE P1−P2 biçiminde değil</td>
+<td>DCB kutusunu boşalt; DCB'ler veriden kestirilir</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="hesabi-durdurmayan-ama-dikkat-isteyen-uyarilar"><a class="m-anchor" href="#hesabi-durdurmayan-ama-dikkat-isteyen-uyarilar" aria-hidden="true">#</a>Hesabı durdurmayan ama dikkat isteyen uyarılar</h3>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Uyarı</th>
+<th>Anlamı</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Statik çözüm ölçülere uymuyor (s₀ &gt; 3)</td>
+<td>Alıcı hareket ediyor olabilir. Çözüm türünü Kinematik ya da Otomatik yap.</td>
+</tr>
+<tr>
+<td>Kod çözümüne göre alıcı onlarca metre yer değiştiriyor</td>
+<td>Veri hareketli bir alıcıya ait; Kinematik seç ve CLK yükle.</td>
+</tr>
+<tr>
+<td>Saat (CLK) ve SP3 dosyalarının uydu saatleri uyuşmuyor</td>
+<td>İkisi farklı merkezlerden. Aynı merkezin (örneğin ikisi de COD0MGXFIN) ürünlerini kullan.</td>
+</tr>
+<tr>
+<td>Gözlemlerin bir kısmı SP3 dosyasının kapsadığı zamanın dışında</td>
+<td>Gün sonundaki kısım için sonraki günün SP3'ünü de aynı kutuya ekle.</td>
+</tr>
+<tr>
+<td>Gömülü igs08.atx 2017 öncesi veriler içindir</td>
+<td>2017–2022 arası veride igs14.atx dosyasını ANTEX kutusuna yükle.</td>
+</tr>
+<tr>
+<td>Alıcı anteni ANTEX'te bulunamadı</td>
+<td>Anten kalibrasyonu yok, yalnız anten yüksekliği uygulandı. Yükseklikte birkaç cm hata olabilir.</td>
+</tr>
+<tr>
+<td>Kısa dosya: en kısa yay düşürüldü</td>
+<td>1 saatten kısa veride belirsizlikler tam oturmaz; doğruluk dm düzeyinde kalabilir.</td>
+</tr>
+<tr>
+<td>İstenen epok bir işlem epoğu değildi</td>
+<td>Yazdığın saate en yakın uygun an kullanıldı (<a href="#b5">Bölüm 5</a>).</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="diger-sik-sorunlar"><a class="m-anchor" href="#diger-sik-sorunlar" aria-hidden="true">#</a>Diğer sık sorunlar</h3>
+<ul>
+<li><strong>Sayfa açılıyor ama Hesapla'ya basınca hiçbir şey olmuyor:</strong> Tarayıcı çok eski olabilir. Chrome, Edge ya da Firefox'un güncel sürümünü kullan.</li>
+<li><strong>index.html'i bilgisayardan çift tıklayınca çalışmıyor:</strong> Bu normal. Siteyi internetten aç ya da <a href="#b8-4">Bölüm 8.4</a>'teki gibi yerel sunucu kullan.</li>
+<li><strong>Farklar çok büyük çıktı (yüzlerce km):</strong> Örnek verinin ISTA referans koordinatı kutularda kalmış olabilir. Referans koordinat kutularını temizle.</li>
+<li><strong>PDF inmedi:</strong> Tarayıcı indirmeyi engellemiş olabilir; adres çubuğunun sağındaki indirme simgesine bak. İnternet bağlantısı da gerekir (<a href="#b7">Bölüm 7</a>).</li>
+</ul>
+<h2 id="b12"><a class="m-anchor" href="#b12" aria-hidden="true">#</a>12. Küçük sözlük</h2>
+<div class="m-tbl"><table>
+<thead>
+<tr>
+<th>Terim</th>
+<th>Basit anlamı</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PPP (hassas nokta konumlama)</td>
+<td>Tek bir alıcının verisi ve IGS'in kesin yörünge/saat ürünleriyle cm düzeyinde konum bulma yöntemi. FazPPP'nin yaptığı şey.</td>
+</tr>
+<tr>
+<td>Kod ölçüsü (P1, P2, C1)</td>
+<td>Uyduyla alıcı arasındaki uzaklığın sinyalin zaman damgasından ölçülmesi. Belirsizliği yok ama metre düzeyinde gürültülü.</td>
+</tr>
+<tr>
+<td>Faz ölçüsü (L1, L2)</td>
+<td>Taşıyıcı dalganın devir sayısından ölçülen uzaklık. Milimetre düzeyinde hassas ama başta kaç tam devir olduğu bilinmiyor (belirsizlik).</td>
+</tr>
+<tr>
+<td>Belirsizlik (ambiguity)</td>
+<td>Faz ölçüsündeki bilinmeyen tam devir sayısı. FazPPP bunu her yay için ondalıklı bir sayı olarak kestirir.</td>
+</tr>
+<tr>
+<td>Yay (arc)</td>
+<td>Bir uydunun kopmadan izlendiği süre. Her yayın kendi belirsizliği vardır.</td>
+</tr>
+<tr>
+<td>Faz kopması (cycle slip)</td>
+<td>Alıcının faz sayımının bir anda tam devirlerle kayması. FazPPP tespit eder ve kopmadan sonra yeni yay başlatır.</td>
+</tr>
+<tr>
+<td>GF (geometriden bağımsız)</td>
+<td>λ₁L1 − λ₂L2. Uzaklık ve saatler yok olur, yalnız iyonosfer ve belirsizlik kalır. Faz kopmasını bulmakta kullanılır.</td>
+</tr>
+<tr>
+<td>MW (Melbourne–Wübbena)</td>
+<td>Faz ve kodun özel bir kombinasyonu; kopma yoksa sabit kalır. Faz kopmasını bulmakta kullanılır.</td>
+</tr>
+<tr>
+<td>LLI</td>
+<td>Alıcının kendisinin "burada faz kopmuş olabilir" diye koyduğu işaret.</td>
+</tr>
+<tr>
+<td>L3, P3</td>
+<td>İyonosferden bağımsız faz ve kod kombinasyonları. İki frekans birleştirilip iyonosfer etkisi yok edilir.</td>
+</tr>
+<tr>
+<td>EKK (en küçük kareler)</td>
+<td>Çok sayıda ölçüden bilinmeyenleri, hataların kareleri toplamı en küçük olacak şekilde bulan yöntem.</td>
+</tr>
+<tr>
+<td>s₀</td>
+<td>EKK'da modelin ölçülere ne kadar uyduğunu gösteren sayı. 1 ve altı iyi.</td>
+</tr>
+<tr>
+<td>Statik / kinematik</td>
+<td>Statik: alıcı sabit, bütün veri için tek konum. Kinematik: her an için ayrı konum.</td>
+</tr>
+<tr>
+<td>SPP (tek nokta konumu)</td>
+<td>Yalnız kodla, her epokta ayrı yapılan basit konum hesabı. Metre doğruluklu.</td>
+</tr>
+<tr>
+<td>SP3</td>
+<td>Uyduların kesin konum ve saatlerini veren IGS dosyası.</td>
+</tr>
+<tr>
+<td>CLK</td>
+<td>Uydu saatlerini SP3'ten sık aralıkla (30 s ya da 5 s) veren dosya.</td>
+</tr>
+<tr>
+<td>Yayın efemerisi</td>
+<td>Uyduların kendilerinin yayınladığı yaklaşık yörünge (navigasyon dosyasında). Metre doğruluklu.</td>
+</tr>
+<tr>
+<td>ANTEX, PCO, PCV</td>
+<td>ANTEX anten kalibrasyon dosyası. PCO, antenin elektriksel merkezinin kaydırılması; PCV, bu merkezin sinyalin geldiği açıya göre değişimi.</td>
+</tr>
+<tr>
+<td>ARP</td>
+<td>Anten referans noktası; anten yüksekliğinin ölçüldüğü fiziksel nokta.</td>
+</tr>
+<tr>
+<td>ZTD, ZHD, ZWD</td>
+<td>Başucu doğrultusunda toplam, kuru (hidrostatik) ve ıslak troposfer gecikmesi.</td>
+</tr>
+<tr>
+<td>Eşleme fonksiyonu</td>
+<td>Başucu gecikmesini eğik yola taşıyan katsayı. Alçak uydularda büyüktür.</td>
+</tr>
+<tr>
+<td>TEC, STEC, VTEC, TECU</td>
+<td>Sinyal yolundaki toplam elektron miktarı; eğik ve düşey değeri. 1 TECU, L1'de yaklaşık 16 cm gecikme demektir.</td>
+</tr>
+<tr>
+<td>IPP</td>
+<td>İyonosfer delme noktası: sinyalin 450 km yükseklikteki ince tabakayı kestiği nokta.</td>
+</tr>
+<tr>
+<td>DCB</td>
+<td>Donanımın P1 ile P2 arasında yarattığı sabit gecikme farkı (nanosaniye).</td>
+</tr>
+<tr>
+<td>Klobuchar</td>
+<td>Navigasyon dosyasındaki 8 katsayıyla iyonosfer gecikmesini kabaca hesaplayan model.</td>
+</tr>
+<tr>
+<td>MP1, MP2</td>
+<td>Kod çok yolluluğu: yansıyarak gelen sinyallerin koda katılan hatası.</td>
+</tr>
+<tr>
+<td>DOP (GDOP, PDOP, HDOP, VDOP, TDOP)</td>
+<td>Uydu geometrisinin kalitesi. Küçük sayı iyi geometri demektir.</td>
+</tr>
+<tr>
+<td>Faz sarılması (wind-up)</td>
+<td>Uydu ya da alıcı anteni döndükçe fazın değişmesi. Yalnız fazı etkiler.</td>
+</tr>
+<tr>
+<td>Shapiro gecikmesi</td>
+<td>Dünya'nın kütle çekiminin sinyal yolunu birkaç cm uzatması (görelilik etkisi).</td>
+</tr>
+<tr>
+<td>Katı yer gelgiti</td>
+<td>Ay ve Güneş'in çekimiyle yer kabuğunun günde iki kez 10–30 cm inip kalkması.</td>
+</tr>
+<tr>
+<td>Kalman filtresi</td>
+<td>Bir değeri her adımda önce tahmin edip sonra yeni ölçüyle düzelten filtre. FazPPP'de kod ölçülerini fazla yumuşatmak için kullanılır.</td>
+</tr>
+<tr>
+<td>ISB</td>
+<td>GPS ile Galileo saatleri arasındaki sabit fark; ikisi birlikte kullanılınca kestirilir.</td>
+</tr>
+<tr>
+<td>Epok</td>
+<td>Ölçü anı. 30 s aralıklı bir dosyada günde 2880 epok vardır.</td>
+</tr>
+<tr>
+<td>GPS zamanı</td>
+<td>Uyduların kullandığı zaman ölçeği. UTC'den 18 s (2014'te 16 s) ileridedir; Türkiye saatinden de 3 saat geridedir.</td>
+</tr>
+</tbody>
+</table></div>
+      <p class="m-end"><a href="#" data-i18n="man.top">↑ Başa dön</a> · <a href="index.html" data-i18n="man.back">← Programa dön</a></p>
+    </article>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p class="muted">FazPPP · Salih Tatcı · İTÜ Geomatik Mühendisliği · <a href="https://github.com/salihtatci/fazPPP">GitHub</a></p>
+  </div>
+</footer>
+
+<script src="assets/i18n.js"></script>
+<script>
+(function () {
+  var lang = "tr";
+  try { lang = localStorage.getItem("fazppp-lang") || (navigator.language || "tr").slice(0, 2); } catch (e) {}
+  if (!window.I18N || !I18N[lang]) lang = "tr";
+  function apply() {
+    var d = (window.I18N && I18N[lang]) || {};
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { var v = d[el.dataset.i18n]; if (v) el.textContent = v; });
+    document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+    document.querySelector(".m-en").hidden = lang !== "en";
+  }
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { lang = b.dataset.lang; try { localStorage.setItem("fazppp-lang", lang); } catch (e) {} apply(); });
+  });
+  apply();
+  // dar ekranda icindekiler kapali baslasin
+  var det = document.querySelector(".m-toc details");
+  if (window.matchMedia("(max-width: 980px)").matches) det.open = false;
+  // okunan bolumu icindekilerde isaretle
+  var links = {};
+  document.querySelectorAll(".m-toc a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  var heads = Array.prototype.slice.call(document.querySelectorAll(".m-body h2[id], .m-body h3[id]"));
+  var cur = null;
+  function mark() {
+    var y = window.scrollY + 120, id = null;
+    for (var i = 0; i < heads.length; i++) { if (heads[i].offsetTop <= y) id = heads[i].id; else break; }
+    if (id === cur) return;
+    if (cur && links[cur]) links[cur].removeAttribute("aria-current");
+    cur = id;
+    if (cur && links[cur]) links[cur].setAttribute("aria-current", "true");
+  }
+  window.addEventListener("scroll", function () { window.requestAnimationFrame(mark); }, { passive: true });
+  mark();
+})();
+</script>
+</body>
+</html>
