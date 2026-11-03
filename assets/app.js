@@ -184,7 +184,7 @@
   let workerReady = false;
   function ensureWorker() {
     if (worker) return worker;
-    worker = new Worker("worker.js");
+    worker = new Worker("worker.js?v=20261103");
     worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === "boot") setStatus(t("boot." + m.stage) + "…");
