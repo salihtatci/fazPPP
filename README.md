@@ -1,9 +1,11 @@
-# FazPPP
+# İTÜ-PPP
+
+*Önceki adı FazPPP; site adresi ve repo adı değişmedi.*
 
 **GPS ve Galileo taşıyıcı faz ölçüleriyle statik ve kinematik konum, tarayıcıda.**
 *Static and kinematic positioning from GPS and Galileo carrier phase, in the browser.* (English below)
 
-Gözlem, SP3, saat (CLK), navigasyon ve meteoroloji dosyalarını yüklediğinizde FazPPP şunları hesaplar:
+Gözlem, SP3, saat (CLK), navigasyon ve meteoroloji dosyalarını yüklediğinizde İTÜ-PPP şunları hesaplar:
 
 - RINEX okuma (Hatanaka `.crx`/`.d` ve `.gz`/`.Z` doğrudan) ve ön işleme (GPS L1/L2, Galileo E1/E5a): donmuş kayıtlar, alıcı saati 1 ms sıçramaları, alıcının LLI bayrakları, GF ve Melbourne–Wübbena ile faz kopmaları (yüksek hızlı veride ek pencere testi), yaylar
 - **Kod ölçülerine Kalman filtresi:** her uydu ve yay için P1/P2'nin faz ile süzülmesi (iyonosfer ayrışmasız), yenilik testi
@@ -148,7 +150,7 @@ Hofmann-Wellenhof, Lichtenegger ve Wasle (2008) *GNSS*; Xu (2007) *GPS*; Kouba (
 
 ## English
 
-FazPPP computes static or kinematic positions from GPS and Galileo carrier-phase observations entirely in the browser (Python + numpy on Pyodide). Upload RINEX observation, SP3, clock (CLK), navigation and meteorological files; it runs preprocessing (clock jumps, cycle slips, arcs), a per-satellite Kalman filter that smooths the code observations with the carrier phase (divergence-free), satellite orbits and clocks, troposphere, antenna/tide/Shapiro/wind-up corrections, an L3 + P3 least-squares solution (static, or a kinematic track with a position at every epoch; receiver clock, wet troposphere, GPS–Galileo inter-system bias, float ambiguities, DOP), ionosphere/TEC with DCB estimation, single-frequency L1/L2 solutions with Klobuchar, MP1/MP2 multipath and a broadcast-ephemeris code solution, and compares them with an optional reference coordinate.
+İTÜ-PPP computes static or kinematic positions from GPS and Galileo carrier-phase observations entirely in the browser (Python + numpy on Pyodide). Upload RINEX observation, SP3, clock (CLK), navigation and meteorological files; it runs preprocessing (clock jumps, cycle slips, arcs), a per-satellite Kalman filter that smooths the code observations with the carrier phase (divergence-free), satellite orbits and clocks, troposphere, antenna/tide/Shapiro/wind-up corrections, an L3 + P3 least-squares solution (static, or a kinematic track with a position at every epoch; receiver clock, wet troposphere, GPS–Galileo inter-system bias, float ambiguities, DOP), ionosphere/TEC with DCB estimation, single-frequency L1/L2 solutions with Klobuchar, MP1/MP2 multipath and a broadcast-ephemeris code solution, and compares them with an optional reference coordinate.
 
 To publish: push the folder to a GitHub repository and enable **Settings → Pages → Deploy from a branch → main / (root)**. To run locally: `python -m http.server` in the folder, then open `http://localhost:8000`.
 
