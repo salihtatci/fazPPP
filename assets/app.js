@@ -383,7 +383,7 @@
   $("#dl-json").addEventListener("click", () => {
     if (!state.result) return;
     const st = state.result.station.marker || "station";
-    download(`fazppp_${st}_${state.result.epoch.used.replace(/:/g, "")}.json`, JSON.stringify(state.result, null, 1), "application/json");
+    download(`itu-ppp_${st}_${state.result.epoch.used.replace(/:/g, "")}.json`, JSON.stringify(state.result, null, 1), "application/json");
   });
 
   // ------------------------------------------------------------------ PDF
@@ -551,10 +551,10 @@
         doc.setPage(i);
         doc.setFont("DejaVu", "normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
         doc.setDrawColor(...LINE); doc.setLineWidth(0.4); doc.line(M, H - M + 2, W - M, H - M + 2);
-        doc.text(`FazPPP · ${S.marker || ""} · ${E.used_full}`, M, H - M + 13);
+        doc.text(`İTÜ-PPP · ${S.marker || ""} · ${E.used_full}`, M, H - M + 13);
         doc.text(`${t("pdf.page")} ${i} / ${n}`, W - M, H - M + 13, { align: "right" });
       }
-      doc.save(`fazppp_${S.marker || "station"}_${E.used.replace(/:/g, "")}.pdf`);
+      doc.save(`itu-ppp_${S.marker || "station"}_${E.used.replace(/:/g, "")}.pdf`);
     } catch (err) {
       showError("internal", `${t("res.pdfFail")} ${err && err.message || err}`);
     } finally {

@@ -1,7 +1,7 @@
 /* Arayuz metinleri: Turkce ve Ingilizce. */
 window.I18N = {
   tr: {
-    "doc.title": "FazPPP: GPS ve Galileo taşıyıcı fazıyla konum",
+    "doc.title": "İTÜ-PPP: GPS ve Galileo taşıyıcı fazıyla konum",
     "nav.compute": "Hesapla",
     "nav.method": "Yöntem",
     "nav.about": "Hakkında",
@@ -66,7 +66,7 @@ window.I18N = {
     "res.downloadJson": "JSON",
     "res.pdfBusy": "PDF hazırlanıyor…",
     "res.pdfFail": "PDF oluşturulamadı:",
-    "pdf.title": "FazPPP sonuç raporu",
+    "pdf.title": "İTÜ-PPP sonuç raporu",
     "pdf.created": "Oluşturma",
     "pdf.files": "Dosyalar",
     "pdf.params": "Ayarlar",
@@ -229,7 +229,7 @@ window.I18N = {
     "method.title": "Yöntem",
     "method.lead": "Hesap zinciri, Uydu Jeodezisi dersinde ISTA istasyonu için yapılan çözümün genelleştirilmiş hâlidir. Her adım bir önceki adımın sonucunu kullanır.",
     "about.title": "Hakkında",
-    "about.text": "FazPPP, Salih Tatcı tarafından İTÜ Geomatik Mühendisliği yüksek lisans Uydu Jeodezisi dersi kapsamında hazırlandı. Hesaplar Python (numpy) ile yazıldı ve Pyodide ile tarayıcıda çalışır. GPS ve Galileo birlikte kullanılır; sabit istasyon için statik, hareketli alıcı için kinematik çözüm yapılır. Belirsizlikler ondalıklı bırakılır, okyanus yüklemesi modellenmez. Sonuçlar eğitim amaçlıdır.",
+    "about.text": "İTÜ-PPP, Salih Tatcı tarafından İTÜ Geomatik Mühendisliği yüksek lisans Uydu Jeodezisi dersi kapsamında hazırlandı. Hesaplar Python (numpy) ile yazıldı ve Pyodide ile tarayıcıda çalışır. GPS ve Galileo birlikte kullanılır; sabit istasyon için statik, hareketli alıcı için kinematik çözüm yapılır. Belirsizlikler ondalıklı bırakılır, okyanus yüklemesi modellenmez. Sonuçlar eğitim amaçlıdır.",
     "about.source": "Kaynak kodu",
     "csv": "CSV",
     "set.mode.auto": "Otomatik (önerilen)",
@@ -346,7 +346,7 @@ window.I18N = {
   },
 
   en: {
-    "doc.title": "FazPPP: positioning from GPS and Galileo carrier phase",
+    "doc.title": "İTÜ-PPP: positioning from GPS and Galileo carrier phase",
     "nav.compute": "Compute",
     "nav.method": "Method",
     "nav.about": "About",
@@ -411,7 +411,7 @@ window.I18N = {
     "res.downloadJson": "JSON",
     "res.pdfBusy": "Preparing PDF…",
     "res.pdfFail": "Could not create the PDF:",
-    "pdf.title": "FazPPP results report",
+    "pdf.title": "İTÜ-PPP results report",
     "pdf.created": "Created",
     "pdf.files": "Files",
     "pdf.params": "Settings",
@@ -574,7 +574,7 @@ window.I18N = {
     "method.title": "Method",
     "method.lead": "The processing chain generalises the ISTA solution made for the Satellite Geodesy course. Each step uses the result of the previous one.",
     "about.title": "About",
-    "about.text": "FazPPP was built by Salih Tatcı for the Satellite Geodesy course of the Geomatics Engineering master's programme at Istanbul Technical University. The computations are written in Python (numpy) and run in the browser with Pyodide. Ambiguities are left as floats; ocean loading and 30-second satellite clocks are not used. Results are for teaching purposes.",
+    "about.text": "İTÜ-PPP was built by Salih Tatcı for the Satellite Geodesy course of the Geomatics Engineering master's programme at Istanbul Technical University. The computations are written in Python (numpy) and run in the browser with Pyodide. Ambiguities are left as floats; ocean loading and 30-second satellite clocks are not used. Results are for teaching purposes.",
     "about.source": "Source code",
     "csv": "CSV",
     "set.mode.auto": "Automatic (recommended)",
