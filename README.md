@@ -22,6 +22,8 @@ Hesaplar Python (yalnızca numpy) ile yazılmıştır ve [Pyodide](https://pyodi
 
 ## Kullanım
 
+Ayrıntılı, ekran görüntülü kullanım kılavuzu (dosyalar, ayarlar, sonuç sekmeleri ve Python kodunun satır satır anlatımı) sitede **Kılavuz** sayfasındadır: [kilavuz.html](https://salihtatci.github.io/fazPPP/kilavuz.html).
+
 1. Siteyi açın, dosyaları ilgili kutulara sürükleyin.
 2. Çözüm türünü seçin (varsayılan **Otomatik**: alıcı hareket ediyorsa kinematik, etmiyorsa statik), isterseniz hesap epoğunu (GPS zamanı) ve referans koordinatı girin.
 3. **Hesapla**'ya basın. İlk açılışta Python ortamı 10-20 saniyede indirilir, sonraki hesaplar birkaç saniye sürer.
@@ -125,6 +127,7 @@ Yerelde denemek için klasörde `python -m http.server` çalıştırıp `http://
 
 ```
 index.html            arayüz
+kilavuz.html          kullanım kılavuzu (assets/manual.css, assets/kilavuz/ ekran görüntüleri)
 worker.js             Pyodide'i yükleyip hesabı ayrı iş parçacığında çalıştırır
 assets/               stil, arayüz kodu, metinler (TR/EN)
 py/gnssfaz/           hesap paketi (readers, crinex, preprocess, codefilter, orbit, corrections, estimate, pipeline ...)

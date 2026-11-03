@@ -1,0 +1,86 @@
+/* FazPPP kullanim kilavuzu sayfasi (kilavuz.html) */
+.top-nav a[aria-current="page"] { color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+
+.m-wrap { padding-top: 40px; padding-bottom: 64px; }
+.m-head { max-width: 860px; margin-bottom: 36px; }
+.m-head h1 { font-size: clamp(2rem, 4.4vw, 3.2rem); margin-bottom: .35em; }
+.m-kicker { margin: 0 0 14px; font-size: .92rem; }
+.m-kicker a { color: var(--ink-2); text-decoration: none; }
+.m-kicker a:hover { color: var(--ink); text-decoration: underline; }
+.m-lead { font-size: 1.12rem; color: var(--ink-2); max-width: 60ch; }
+.m-en { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--sheet); color: var(--ink-2); font-size: .95rem; }
+
+.m-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 48px; align-items: start; }
+@media (max-width: 980px) { .m-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
+
+/* icindekiler */
+.m-toc { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; font-size: .88rem; padding-right: 6px; scrollbar-width: thin; }
+@media (max-width: 980px) { .m-toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); padding: 10px 14px; } }
+.m-toc summary { font-weight: 650; color: var(--ink); cursor: pointer; margin-bottom: 8px; list-style: none; }
+.m-toc summary::-webkit-details-marker { display: none; }
+@media (min-width: 981px) { .m-toc summary { pointer-events: none; } }
+@media (max-width: 980px) { .m-toc summary::after { content: " ▾"; color: var(--muted); } .m-toc details[open] summary::after { content: " ▴"; } }
+.m-toc ol { list-style: none; margin: 0; padding: 0; }
+.m-toc-l > li { margin: 2px 0; }
+.m-toc-s { padding-left: 12px !important; border-left: 1px solid var(--line-2); margin: 2px 0 6px 4px !important; }
+.m-toc a { display: block; padding: 3px 8px; border-radius: 4px; color: var(--ink-2); text-decoration: none; line-height: 1.3; }
+.m-toc-s a { color: var(--muted); font-size: .84rem; }
+.m-toc a:hover { color: var(--ink); background: var(--sheet); }
+.m-toc a[aria-current="true"] { color: var(--ink); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* govde */
+.m-body { min-width: 0; max-width: 860px; }
+.m-body h2 { margin: 2.2em 0 .6em; padding-top: .4em; border-top: 1px solid var(--line); scroll-margin-top: 76px; }
+.m-body h2:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.m-body h3 { margin: 1.8em 0 .55em; font-size: 1.22rem; scroll-margin-top: 76px; }
+.m-body h4 { scroll-margin-top: 76px; }
+.m-anchor { float: left; margin-left: -1.1em; width: 1.1em; color: var(--line); text-decoration: none; font-weight: 400; opacity: 0; }
+.m-body h2:hover .m-anchor, .m-body h3:hover .m-anchor { opacity: 1; }
+@media (max-width: 600px) { .m-anchor { display: none; } }
+.m-body p, .m-body li { max-width: 72ch; }
+.m-body ul, .m-body ol { padding-left: 1.4em; margin: 0 0 1em; }
+.m-body li { margin: .3em 0; }
+.m-body li > p { margin: 0 0 .4em; }
+.m-body strong { font-weight: 650; }
+.m-body :not(pre) > code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .86em; background: var(--sheet); border: 1px solid var(--line-2); border-radius: 4px; padding: .05em .35em; white-space: nowrap; }
+@media (max-width: 600px) { .m-body :not(pre) > code { white-space: normal; word-break: break-word; } }
+
+/* tablolar: metin tablolari, sarar ve sola yaslanir */
+.m-tbl { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); }
+.m-tbl table { font-variant-numeric: normal; font-size: .9rem; }
+.m-tbl th, .m-tbl td { text-align: left; white-space: normal; vertical-align: top; padding: 8px 12px; min-width: 90px; }
+.m-tbl thead th { position: static; }
+.m-tbl td code { white-space: nowrap; }
+
+/* kod */
+.m-code { position: relative; margin: 12px 0 18px; }
+.m-code pre { margin: 0; overflow-x: auto; background: #172126; color: #e3ebe8; border-radius: var(--r); padding: 14px 16px; font-size: .84rem; line-height: 1.55; tab-size: 4; }
+.m-code code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+.m-code .c { color: #8fc4a0; }
+.m-code .s { color: #e8c178; }
+.m-code .k { color: #79b8d6; }
+.m-lang { position: absolute; top: 6px; right: 10px; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: #8a9ca1; pointer-events: none; }
+:root[data-theme="dark"] .m-code pre { background: #0d1416; border: 1px solid var(--line); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .m-code pre { background: #0d1416; border: 1px solid var(--line); } }
+
+.m-formula { margin: 12px 0 18px; padding: 14px 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); font-size: 1.02rem; overflow-x: auto; }
+.m-formula div { white-space: nowrap; margin: 4px 0; }
+
+/* resimler */
+.m-fig { margin: 14px 0 22px; }
+.m-fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); }
+.m-fig a { display: block; }
+.m-fig figcaption { font-size: .84rem; color: var(--muted); margin-top: 6px; }
+.m-arch svg { width: 100%; height: auto; display: block; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r); }
+.m-arch text { font-family: var(--font); font-size: 13px; }
+.m-arch .a-title { font-size: 15px; font-weight: 650; fill: var(--ink); }
+.m-arch .a-n { font-weight: 650; fill: var(--ink); }
+.m-arch .a-q { font-size: 11.5px; fill: var(--muted); }
+.m-arch .a-t { font-size: 11.5px; fill: var(--ink); }
+.m-arch .a-box { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.m-arch .a-main { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: var(--accent); stroke-width: 2; }
+.m-arch .a-pack { fill: var(--paper); stroke: var(--line); stroke-width: 1; }
+.m-arch .a-line path { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.m-arch .a-head { fill: var(--muted); }
+
+.m-end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .92rem; }
