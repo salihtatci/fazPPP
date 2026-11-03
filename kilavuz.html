@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FazPPP Kullanım Kılavuzu · FazPPP</title>
-<meta name="description" content="FazPPP kullanım kılavuzu: dosyalar, arayüz, ayarlar, sonuç sekmeleri ve Python kodunun satır satır anlatımı.">
+<title>İTÜ-PPP Kullanım Kılavuzu · İTÜ-PPP</title>
+<meta name="description" content="İTÜ-PPP kullanım kılavuzu: dosyalar, arayüz, ayarlar, sonuç sekmeleri ve Python kodunun satır satır anlatımı.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,9 +17,9 @@
 
 <header class="top">
   <div class="wrap top-in">
-    <a class="brand" href="index.html" aria-label="FazPPP">
+    <a class="brand" href="index.html" aria-label="İTÜ-PPP">
       <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/><circle cx="22.5" cy="9.5" r="3" fill="var(--accent)"/></svg>
-      <span>FazPPP</span>
+      <span>İTÜ-PPP</span>
     </a>
     <nav class="top-nav" aria-label="Ana menü">
       <a href="index.html#compute" data-i18n="nav.compute">Hesapla</a>
@@ -37,7 +37,7 @@
 <main class="wrap m-wrap">
   <div class="m-head">
     <p class="m-kicker"><a href="index.html" data-i18n="man.back">← Programa dön</a></p>
-    <h1>FazPPP Kullanım Kılavuzu</h1>
+    <h1>İTÜ-PPP Kullanım Kılavuzu</h1>
     <p class="m-lead">Dosyaların hazırlanmasından sonuçların okunmasına, sonra da hesabı yapan Python kodunun satır satır anlatımına kadar.</p>
     <p class="m-en" hidden>This manual is currently available in Turkish only. The program itself is fully available in English.</p>
   </div>
@@ -118,7 +118,7 @@
     </nav>
     <article id="m-body" class="m-body">
 <h2 id="b1"><a class="m-anchor" href="#b1" aria-hidden="true">#</a>1. Giriş</h2>
-<p>FazPPP, bir GNSS istasyonunun konumunu GPS ve Galileo taşıyıcı faz ölçüleriyle hesaplayan ve tamamen web tarayıcısında çalışan bir programdır. Adresi <a href="https://salihtatci.github.io/fazPPP/">https://salihtatci.github.io/fazPPP/</a>. Kurulum, üyelik ya da şifre yok: sayfayı açıyorsun, dosyalarını seçiyorsun, <strong>Hesapla</strong> düğmesine basıyorsun.</p>
+<p>İTÜ-PPP, bir GNSS istasyonunun konumunu GPS ve Galileo taşıyıcı faz ölçüleriyle hesaplayan ve tamamen web tarayıcısında çalışan bir programdır. Adresi <a href="https://salihtatci.github.io/fazPPP/">https://salihtatci.github.io/fazPPP/</a>. Kurulum, üyelik ya da şifre yok: sayfayı açıyorsun, dosyalarını seçiyorsun, <strong>Hesapla</strong> düğmesine basıyorsun.</p>
 <p>Dosyaların hiçbir sunucuya gitmez. Hesabı senin bilgisayarındaki tarayıcı yapar (Python + numpy, Pyodide üzerinde). İnternet yalnızca ilk açılışta programın kendisini indirmek için gerekir.</p>
 <p>Programın sana verdiği sonuçlar:</p>
 <ul>
@@ -231,10 +231,10 @@
 </ol>
 <p>Araç çubuğundaki menü bağlantıları seni bu bölümlere götürür. Sonuçlar bölümü ilk açılışta gizlidir; hesap bitmeden görünmez.</p>
 <h3 id="giris-ekrani"><a class="m-anchor" href="#giris-ekrani" aria-hidden="true">#</a>Giriş ekranı</h3>
-<figure class="m-fig"><a href="assets/kilavuz/01_giris.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/01_giris.jpg" width="1600" height="1075" alt="FazPPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir" loading="lazy"></a><figcaption>FazPPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir</figcaption></figure>
+<figure class="m-fig"><a href="assets/kilavuz/01_giris.jpg" target="_blank" rel="noopener"><img src="assets/kilavuz/01_giris.jpg" width="1600" height="1075" alt="İTÜ-PPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir" loading="lazy"></a><figcaption>İTÜ-PPP giriş ekranı, kırmızı numaralar aşağıdaki listeyle eşleşir</figcaption></figure>
 
 <ol>
-<li><strong>FazPPP logosu:</strong> Tıklayınca sayfanın en başına döner.</li>
+<li><strong>İTÜ-PPP logosu:</strong> Tıklayınca sayfanın en başına döner.</li>
 <li><strong>Menü (Hesapla, Yöntem, Hakkında):</strong> İlgili bölüme kaydırır. Bir şey açılmaz ya da hesap başlamaz; yalnızca sayfayı o noktaya götürür.</li>
 <li><strong>TR / EN:</strong> Arayüz dilini değiştirir. Sonuçlar ve PDF raporu da seçtiğin dilde çıkar. Hesap bittikten sonra dil değiştirirsen sonuçlar yeniden hesaplanmadan yeni dilde gösterilir.</li>
 <li><strong>Dosyaları yükle:</strong> Sayfayı dosya kutularına kaydırır.</li>
@@ -530,14 +530,14 @@
 <td>Tüm sonuçları indir (PDF)</td>
 <td>Sonuçlar başlığının sağı, sarı düğme</td>
 <td>Bütün sekmeler, tablolar ve grafiklerle tek bir rapor</td>
-<td>fazppp_ISTA_131500.pdf</td>
+<td>itu-ppp_ISTA_131500.pdf</td>
 <td>Herkes; ödeve ya da rapora eklemek için</td>
 </tr>
 <tr>
 <td>JSON</td>
 <td>PDF düğmesinin yanı</td>
 <td>Bütün sayısal sonuçlar, tek dosyada, makine okunur biçimde</td>
-<td>fazppp_ISTA_131500.json</td>
+<td>itu-ppp_ISTA_131500.json</td>
 <td>Sonuçlarla kendi programında (Python, MATLAB) çalışacak olan</td>
 </tr>
 <tr>
@@ -583,7 +583,7 @@
 <rect x="388" y="368" width="158" height="56" rx="8" class="a-box"/><text x="400" y="392" class="a-n">estimate.py</text><text x="400" y="408" class="a-q">EKK, SPP, DOP</text>
 <rect x="562" y="368" width="158" height="56" rx="8" class="a-box"/><text x="574" y="392" class="a-n">yardımcılar</text><text x="574" y="408" class="a-q">geo, timeutil, const</text>
 </svg>
-<figcaption>FazPPP'nin parçaları: ekran, worker ve Python paketi.</figcaption>
+<figcaption>İTÜ-PPP'nin parçaları: ekran, worker ve Python paketi.</figcaption>
 </figure>
 
 <p>Sol üstteki ekran dosyaları ve ayarları Worker'a verir; hesabı Python paketi yapar ve sonuç JSON olarak ekrana döner.</p>
@@ -2245,7 +2245,7 @@ Sonuc: sonuc.json
 <tbody>
 <tr>
 <td>PPP (hassas nokta konumlama)</td>
-<td>Tek bir alıcının verisi ve IGS'in kesin yörünge/saat ürünleriyle cm düzeyinde konum bulma yöntemi. FazPPP'nin yaptığı şey.</td>
+<td>Tek bir alıcının verisi ve IGS'in kesin yörünge/saat ürünleriyle cm düzeyinde konum bulma yöntemi. İTÜ-PPP'nin yaptığı şey.</td>
 </tr>
 <tr>
 <td>Kod ölçüsü (P1, P2, C1)</td>
@@ -2257,7 +2257,7 @@ Sonuc: sonuc.json
 </tr>
 <tr>
 <td>Belirsizlik (ambiguity)</td>
-<td>Faz ölçüsündeki bilinmeyen tam devir sayısı. FazPPP bunu her yay için ondalıklı bir sayı olarak kestirir.</td>
+<td>Faz ölçüsündeki bilinmeyen tam devir sayısı. İTÜ-PPP bunu her yay için ondalıklı bir sayı olarak kestirir.</td>
 </tr>
 <tr>
 <td>Yay (arc)</td>
@@ -2265,7 +2265,7 @@ Sonuc: sonuc.json
 </tr>
 <tr>
 <td>Faz kopması (cycle slip)</td>
-<td>Alıcının faz sayımının bir anda tam devirlerle kayması. FazPPP tespit eder ve kopmadan sonra yeni yay başlatır.</td>
+<td>Alıcının faz sayımının bir anda tam devirlerle kayması. İTÜ-PPP tespit eder ve kopmadan sonra yeni yay başlatır.</td>
 </tr>
 <tr>
 <td>GF (geometriden bağımsız)</td>
@@ -2365,7 +2365,7 @@ Sonuc: sonuc.json
 </tr>
 <tr>
 <td>Kalman filtresi</td>
-<td>Bir değeri her adımda önce tahmin edip sonra yeni ölçüyle düzelten filtre. FazPPP'de kod ölçülerini fazla yumuşatmak için kullanılır.</td>
+<td>Bir değeri her adımda önce tahmin edip sonra yeni ölçüyle düzelten filtre. İTÜ-PPP'de kod ölçülerini fazla yumuşatmak için kullanılır.</td>
 </tr>
 <tr>
 <td>ISB</td>
@@ -2388,7 +2388,7 @@ Sonuc: sonuc.json
 
 <footer class="foot">
   <div class="wrap">
-    <p class="muted">FazPPP · Salih Tatcı · İTÜ Geomatik Mühendisliği · <a href="https://github.com/salihtatci/fazPPP">GitHub</a></p>
+    <p class="muted">İTÜ-PPP · Salih Tatcı · İTÜ Geomatik Mühendisliği · <a href="https://github.com/salihtatci/fazPPP">GitHub</a></p>
   </div>
 </footer>
 
